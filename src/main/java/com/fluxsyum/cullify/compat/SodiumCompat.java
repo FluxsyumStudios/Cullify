@@ -35,6 +35,28 @@ public class SodiumCompat {
                     )
                     .build());
 
+            // 2. Culling Shape Option
+            CullifyConfig.CullingShape[] shapes = CullifyConfig.CullingShape.values();
+            Component[] names = new Component[shapes.length];
+            for (int i = 0; i < shapes.length; i++) {
+                String name = shapes[i].name();
+                String formattedName = name.substring(0, 1).toUpperCase() + name.substring(1).toLowerCase();
+                names[i] = Component.literal(formattedName);
+            }
+
+            builder.add(OptionImpl.createBuilder(CullifyConfig.CullingShape.class, storage)
+                    .setName(Component.translatable("cullify.options.culling_shape"))
+                    .setTooltip(Component.translatable("cullify.options.culling_shape.tooltip"))
+                    .setControl(opt -> new CyclingControl<>(opt, CullifyConfig.CullingShape.class, names))
+                    .setBinding(
+                            (s, v) -> {
+                                CullifyConfig.CULLING_SHAPE.set(v);
+                                CullifyMod.scheduleWorldReload();
+                            },
+                            s -> CullifyConfig.CULLING_SHAPE.get()
+                    )
+                    .build());
+
             // 3. Cull Grass Toggle
             builder.add(OptionImpl.createBuilder(Boolean.class, storage)
                     .setName(Component.translatable("cullify.options.cull_grass"))

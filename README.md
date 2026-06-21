@@ -1,65 +1,70 @@
 # 🌱 Cullify
 
+<div align="center">
+
 [![NeoForge](https://img.shields.io/badge/NeoForge-1.21.1-orange?style=for-the-badge)](https://neoforged.net/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg?style=for-the-badge)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Client--Side-green?style=for-the-badge)]()
 [![Vibe Coding](https://img.shields.io/badge/Made%20with-Vibe%20Coding-purple?style=for-the-badge)]()
 
-**Cullify** is an advanced, ultra-optimized, and fully client-side culling system for Minecraft. It dynamically optimizes rendering performance by intelligently culling vegetation (grass, flowers, ferns, algae, kelp, etc.) based on your distance and customizable geometric shapes, without making any modifications to the actual world blocks.
+**Cullify** is an advanced, ultra-optimized, client-side culling system for Minecraft. It dynamically optimizes rendering performance by intelligently culling decorative vegetation (grass, flowers, ferns, algae, kelp, etc.) based on your distance and customizable geometric shapes, without altering the actual world blocks.
 
-Whether you are using Vanilla rendering or **Sodium/Embeddium**, Cullify is designed to skyrocket your FPS in dense forest, jungle, and meadow biomes while maintaining visual fidelity.
+</div>
 
 ---
 
 ## ✨ Features
 
-*   🚀 **FPS Boost**: Significantly reduces vertex throughput and draw calls by culling non-visible distant vegetation.
-*   📐 **8 Culling Shapes**: Choose how the culling boundary behaves around the player.
-*   ⚡ **Ultra-Optimized Algorithm**: Leverages a multi-threaded adjacent chunk-section (AABB) AABB cache, avoiding expensive per-block distance checks.
-*   ⚙️ **In-Game Config Menu**: Access settings instantly by pressing `K` or using commands.
-*   📊 **Real-time Statistics HUD**: Track how many blocks are culled, chunk updates, and water replacements in real time.
-*   🧪 **Sodium Compatibility**: Features custom integrations with Sodium's internal `LevelSlice` rendering pipeline and Sodium Options API.
-*   💾 **Auto-Save & Persistency**: All configurations save immediately to `config/cullify-client.toml`.
-*   🎭 **Minecraft Blur Integration**: Fully compatible with Minecraft 1.20.5+ native Menu Background Blur settings.
+* 🚀 **FPS Boost** — Substantially reduces vertex throughput and draw calls by culling non-visible distant vegetation.
+* 📐 **8 Culling Shapes** — Customizable geometric boundaries to control culling behavior around the player.
+* ⚡ **Voxel Grid Cache** — Utilizes a fast `128×128×128` voxel grid centered on the player for instant $O(1)$ visibility lookups.
+* 📉 **LOD Density Filter** — Deterministic, hash-based density filtering that thins out outer vegetation (75%, 50%, or 25%) to save CPU overhead.
+* 🌿 **Double-Tall Vegetation Support** — Synchronizes culling between bottom and top halves of double-tall blocks to prevent visual mismatch.
+* 🔒 **Thread-Safe Rendering Updates** — Section updates are safely queued and dispatched directly on Minecraft's main render thread.
+* ⚙️ **In-Game Config Menu** — Fully custom configuration screen accessible via the `K` keybind, commands, or the NeoForge mods menu.
+* 📊 **Real-time Statistics HUD** — Screen overlay tracking culled blocks, water replacements, chunk updates, and draw calls.
+* 🧪 **Sodium Compatibility** — Direct hooks into Sodium's internal `LevelSlice` rendering pipeline and Sodium Options API.
+* 🌐 **Localization** — Full support for English (`en_us`) and Brazilian Portuguese (`pt_br`).
+* 💾 **Auto-Save & Persistency** — Settings save automatically to `config/cullify-client.toml`.
 
 ---
 
 ## 📐 Geometric Culling Shapes
 
-Unlike traditional culling mods that only offer basic spherical boundaries, Cullify introduces mathematical boundary checks on the horizontal plane (X/Z) and vertical axis (Y):
+Unlike traditional culling mods, Cullify offers flexible mathematical boundary checks on the horizontal plane (X/Z) and vertical axis (Y):
 
 | Shape | Geometry Mode | Description |
-| :--- | :--- | :--- |
-| 🟢 **Sphere** | 3D Spherical | Culls blocks outside a 3D radius. |
-| 🌀 **Cylinder** | 2D Circular (infinite Y) | Culls blocks outside a horizontal circular radius. |
-| 📦 **Box** | 3D Cubical | Culls blocks outside a 3D bounding box. |
-| 🔺 **Triangle** | 2D Equilateral | Triangular culling bounds centered on the player. |
-| ⬡ **Hexagon** | 2D Hexagonal | A clean hexagonal culling shape. |
-| ⭐ **Star** | 2D 6-Point Star | Union of two intersecting triangles for a unique visual path. |
-| ⏹️ **Square** | 2D Square | Culls blocks outside a flat square grid. |
-| 🔵 **Circle** | 2D Circular | Flat horizontal circle boundary check. |
+| :---: | :--- | :--- |
+| 🟢 | **Sphere** | Culls blocks outside a 3D spherical radius. |
+| 🌀 | **Cylinder** | Culls blocks outside a horizontal circular radius (infinite Y). |
+| 📦 | **Box** | Culls blocks outside a 3D cubical bounding box. |
+| 🔺 | **Triangle** | Culls blocks outside an equilateral triangular bounds centered on the player. |
+| ⬡ | **Hexagon** | Culls blocks outside a hexagonal boundary. |
+| ⭐ | **Star** | Culls blocks outside a 6-point star (union of two intersecting triangles). |
+| ⏹️ | **Square** | Culls blocks outside a flat square grid. |
+| 🔵 | **Circle** | Culls blocks outside a flat horizontal circular boundary. |
 
 ---
 
 ## 🎮 Controls & Commands
 
-You can configure and inspect Cullify dynamically in-game:
+Configuring and inspecting Cullify in-game is easy:
 
-### Keybinds
-*   `K` - Open the custom Cullify GUI Config Screen.
+### ⌨️ Keybinds
+* `K` — Opens the custom Cullify GUI Config Screen.
 
-### Commands
-*   `/cullify menu` - Opens the configuration GUI menu.
-*   `/cullify debug` - Toggles the real-time statistics HUD overlay.
-*   `/cullify stats` - Prints current performance statistics (culled blocks, draw calls, active renderer) directly in chat.
-*   `/cullify verbose` - Toggles verbose logging for debugging.
-*   `/cullify reload` - Forces a complete reload of the client level renderer chunks.
+### 💬 Chat Commands
+* `/cullify menu` — Opens the configuration GUI menu.
+* `/cullify debug` — Toggles the real-time statistics HUD overlay.
+* `/cullify stats` — Prints current performance statistics directly in chat.
+* `/cullify verbose` — Toggles verbose logging for debugging.
+* `/cullify reload` — Forces a complete reload of the client level renderer chunks.
 
 ---
 
 ## 🛠️ Configuration
 
-The configurations are saved in your game's config directory: `config/cullify-client.toml`.
+Configurations are stored at `config/cullify-client.toml` and updated dynamically:
 
 ```toml
 [general]
@@ -82,6 +87,10 @@ The configurations are saved in your game's config directory: `config/cullify-cl
 	# Maximum distance in blocks to render other decorative plants.
 	# Range: 0 ~ 512
 	otherPlantCullDistance = 32
+	# LOD density filter (0-100). 100 = keep all plants (disabled). Lower values thin out
+	# plants near the culling boundary using a deterministic hash.
+	# Range: 0 ~ 100
+	lodDensity = 100
 	# Enable debug overlay HUD to show culling stats and configuration status.
 	debugMode = false
 ```
@@ -90,10 +99,9 @@ The configurations are saved in your game's config directory: `config/cullify-cl
 
 ## 🔌 Compatibility
 
-*   **Sodium**: Seamlessly integrated. When Sodium is detected, Cullify hooks directly into `LevelSlice` rendering to batch-cull blocks in MDI (Multi-Draw Indirect) buffers.
-*   **Vanilla Renderer**: Fallback compatibility included for standard Minecraft block rendering pipeline.
-*   **Sodium Options API**: Cullify options are registered directly into Sodium's Options Menu page if installed.
-*   **No Server Mod Required**: Since Cullify is 100% client-side, you can join any server without issues.
+* **Sodium / Embeddium** — Fully integrated. Hooks into Sodium's internal `LevelSlice` rendering pipeline to batch-cull blocks in MDI (Multi-Draw Indirect) buffers. The Culling Shape option and general configurations are also registered directly in Sodium's Options Menu.
+* **Vanilla Renderer** — Fallback compatibility included for standard Minecraft block rendering pipeline.
+* **No Server Mod Required** — Cullify is 100% client-side; you can join any server without issues.
 
 ---
 
@@ -105,4 +113,4 @@ This mod is available under the **GNU General Public License v3 (GPL-3.0)**. Fee
 
 ## ⚡ Vibe Coding
 
-This mod was built 100% using **Vibe Coding**! It was developed entirely through AI-assisted pair programming, dynamic prompt iterations, and automated compilation loops. Let the vibes render! 🌟
+This mod was built 100% using **Vibe Coding**! Developed entirely through AI-assisted pair programming, dynamic prompt iterations, and automated compilation loops. Let the vibes render! 🌟

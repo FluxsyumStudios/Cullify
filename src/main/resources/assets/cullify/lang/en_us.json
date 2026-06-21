@@ -16,6 +16,8 @@
   "cullify.options.debug_mode": "Debug Mode",
   "cullify.options.debug_mode.tooltip": "Shows the number of culled vegetation blocks per second in the action bar (above the hotbar).",
   "cullify.options.blocks": "%s blocks",
+  "cullify.options.culling_shape": "Culling Shape",
+  "cullify.options.culling_shape.tooltip": "The geometric shape of the culling boundary around the player.",
   "cullify.menu.title": "Cullify Options",
   "key.cullify.config": "Open Cullify Menu",
   "key.categories.cullify": "Cullify"

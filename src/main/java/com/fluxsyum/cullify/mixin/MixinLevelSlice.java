@@ -28,9 +28,15 @@ public class MixinLevelSlice {
     private static final byte FULLY_KEPT = 1;
     private static final byte FULLY_CULLED = 2;
 
-    @Unique private final byte[] cullify$grassCache = new byte[27];
+    @Unique private final byte[] cullify$grassCache  = new byte[27];
     @Unique private final byte[] cullify$flowerCache = new byte[27];
-    @Unique private final byte[] cullify$otherCache = new byte[27];
+    @Unique private final byte[] cullify$otherCache  = new byte[27];
+
+    /**
+     * Pre-filter flag: true if section [i] contains at least one cullable plant.
+     * Built during copyData so that sections with no vegetation skip all math.
+     */
+    @Unique private final boolean[] cullify$hasVegetation = new boolean[27];
 
     @Unique private boolean cullify$cacheValid = false;
     @Unique private int cullify$lastConfigVersion = -1;
@@ -40,7 +46,8 @@ public class MixinLevelSlice {
     private void cullify$onCopyData(CallbackInfo ci) {
         cullify$cacheValid = false;
         CullifyDebugManager.mixinLevelSliceApplied = true;
-        if (CullifyConfig.ENABLED.get() && CullifyMod.hasPlayer) {
+        cullify$scanVegetation(); // always scan so hasVegetation stays accurate
+        if (CullifyMod.cachedEnabled && CullifyMod.hasPlayer) {
             cullify$rebuildCache();
         }
     }
@@ -55,7 +62,7 @@ public class MixinLevelSlice {
     @Inject(method = "getBlockState(III)Lnet/minecraft/world/level/block/state/BlockState;",
             at = @At("RETURN"), cancellable = true, remap = false)
     private void cullify$onGetBlockStateCoords(int x, int y, int z, CallbackInfoReturnable<BlockState> cir) {
-        if (!CullifyConfig.ENABLED.get() || !CullifyMod.hasPlayer) {
+        if (!CullifyMod.cachedEnabled || !CullifyMod.hasPlayer) {
             return;
         }
 
@@ -65,14 +72,17 @@ public class MixinLevelSlice {
         CullifyMod.PlantType type = ((CullifyBlockState) (Object) state).cullify$getPlantType();
         if (type == CullifyMod.PlantType.NONE) return;
 
+        int lx = (x - originBlockX) >> 4;
+        int ly = (y - originBlockY) >> 4;
+        int lz = (z - originBlockZ) >> 4;
+
+        // Mark this section as containing vegetation (lazy population of hasVegetation)
+        cullify$markVegetation(lx, ly, lz);
+
         if (!cullify$cacheValid || cullify$lastConfigVersion != CullifyMod.configVersion) {
             cullify$lastConfigVersion = CullifyMod.configVersion;
             cullify$rebuildCache();
         }
-
-        int lx = (x - originBlockX) >> 4;
-        int ly = (y - originBlockY) >> 4;
-        int lz = (z - originBlockZ) >> 4;
 
         if (lx < 0 || lx > 2 || ly < 0 || ly > 2 || lz < 0 || lz > 2) {
             if (CullifyMod.shouldCull(state, x, y, z)) {
@@ -98,7 +108,7 @@ public class MixinLevelSlice {
     @Inject(method = "getBlockState(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/block/state/BlockState;",
             at = @At("RETURN"), cancellable = true, remap = true)
     private void cullify$onGetBlockStatePos(net.minecraft.core.BlockPos pos, CallbackInfoReturnable<BlockState> cir) {
-        if (!CullifyConfig.ENABLED.get() || !CullifyMod.hasPlayer) {
+        if (!CullifyMod.cachedEnabled || !CullifyMod.hasPlayer) {
             return;
         }
 
@@ -108,17 +118,21 @@ public class MixinLevelSlice {
         CullifyMod.PlantType type = ((CullifyBlockState) (Object) state).cullify$getPlantType();
         if (type == CullifyMod.PlantType.NONE) return;
 
+        int x = pos.getX();
+        int y = pos.getY();
+        int z = pos.getZ();
+
+        int lx = (x - originBlockX) >> 4;
+        int ly = (y - originBlockY) >> 4;
+        int lz = (z - originBlockZ) >> 4;
+
+        // Mark this section as containing vegetation (lazy population of hasVegetation)
+        cullify$markVegetation(lx, ly, lz);
+
         if (!cullify$cacheValid || cullify$lastConfigVersion != CullifyMod.configVersion) {
             cullify$lastConfigVersion = CullifyMod.configVersion;
             cullify$rebuildCache();
         }
-
-        int x = pos.getX();
-        int y = pos.getY();
-        int z = pos.getZ();
-        int lx = (x - originBlockX) >> 4;
-        int ly = (y - originBlockY) >> 4;
-        int lz = (z - originBlockZ) >> 4;
 
         if (lx < 0 || lx > 2 || ly < 0 || ly > 2 || lz < 0 || lz > 2) {
             if (CullifyMod.shouldCull(state, x, y, z)) {
@@ -147,33 +161,33 @@ public class MixinLevelSlice {
         double py = CullifyMod.playerY;
         double pz = CullifyMod.playerZ;
 
-        double grassDist = CullifyMod.getCullDistance(CullifyMod.PlantType.GRASS);
+        double grassDist  = CullifyMod.getCullDistance(CullifyMod.PlantType.GRASS);
         double flowerDist = CullifyMod.getCullDistance(CullifyMod.PlantType.FLOWER);
-        double otherDist = CullifyMod.getCullDistance(CullifyMod.PlantType.OTHER);
+        double otherDist  = CullifyMod.getCullDistance(CullifyMod.PlantType.OTHER);
 
         for (int ly = 0; ly < 3; ly++) {
             double minY = originBlockY + (ly << 4);
             double maxY = minY + 16.0;
             double nearDy = py < minY ? minY - py : (py > maxY ? py - maxY : 0.0);
-            double farDy = py < minY + 8.0 ? maxY - py : py - minY;
+            double farDy  = py < minY + 8.0 ? maxY - py : py - minY;
 
             for (int lz = 0; lz < 3; lz++) {
                 double minZ = originBlockZ + (lz << 4);
                 double maxZ = minZ + 16.0;
                 double nearDz = pz < minZ ? minZ - pz : (pz > maxZ ? pz - maxZ : 0.0);
-                double farDz = pz < minZ + 8.0 ? maxZ - pz : pz - minZ;
+                double farDz  = pz < minZ + 8.0 ? maxZ - pz : pz - minZ;
 
                 for (int lx = 0; lx < 3; lx++) {
                     double minX = originBlockX + (lx << 4);
                     double maxX = minX + 16.0;
                     double nearDx = px < minX ? minX - px : (px > maxX ? px - maxX : 0.0);
-                    double farDx = px < minX + 8.0 ? maxX - px : px - minX;
+                    double farDx  = px < minX + 8.0 ? maxX - px : px - minX;
 
                     int sectionIdx = ly * 9 + lz * 3 + lx;
 
-                    cullify$grassCache[sectionIdx] = cullify$classify(nearDx, farDx, nearDy, farDy, nearDz, farDz, grassDist);
+                    cullify$grassCache[sectionIdx]  = cullify$classify(nearDx, farDx, nearDy, farDy, nearDz, farDz, grassDist);
                     cullify$flowerCache[sectionIdx] = cullify$classify(nearDx, farDx, nearDy, farDy, nearDz, farDz, flowerDist);
-                    cullify$otherCache[sectionIdx] = cullify$classify(nearDx, farDx, nearDy, farDy, nearDz, farDz, otherDist);
+                    cullify$otherCache[sectionIdx]  = cullify$classify(nearDx, farDx, nearDy, farDy, nearDz, farDz, otherDist);
                 }
             }
         }
@@ -188,7 +202,7 @@ public class MixinLevelSlice {
             return FULLY_KEPT;
         }
 
-        CullifyConfig.CullingShape shape = CullifyConfig.CULLING_SHAPE.get();
+        CullifyConfig.CullingShape shape = CullifyMod.cachedShape;
 
         // Fast culling check (if the minimum distance is greater than the threshold, it is outside)
         if (shape == CullifyConfig.CullingShape.SPHERE) {
@@ -219,9 +233,9 @@ public class MixinLevelSlice {
         boolean c2 = CullifyMod.isInShape(nearDx, nearDy, farDz, threshold, shape);
         boolean c3 = CullifyMod.isInShape(farDx, nearDy, nearDz, threshold, shape);
         boolean c4 = CullifyMod.isInShape(farDx, nearDy, farDz, threshold, shape);
-        
+
         boolean fullyIn = c1 && c2 && c3 && c4;
-        
+
         if (shape == CullifyConfig.CullingShape.SPHERE) {
             // For sphere, also validate the upper Y bound of the block section
             boolean c5 = CullifyMod.isInShape(nearDx, farDy, nearDz, threshold, shape);
@@ -250,6 +264,31 @@ public class MixinLevelSlice {
                 return cullify$otherCache[sectionIdx];
             default:
                 return FULLY_KEPT;
+        }
+    }
+
+    /**
+     * Resets the hasVegetation flags to false.
+     * Called at the start of copyData so stale flags from the previous chunk are cleared.
+     * Flags are set lazily — the first time a plant block is encountered in a section
+     * during getBlockState, we mark that section as containing vegetation.
+     */
+    @Unique
+    private void cullify$scanVegetation() {
+        for (int i = 0; i < 27; i++) {
+            cullify$hasVegetation[i] = false;
+        }
+    }
+
+    /**
+     * Called from both getBlockState hooks whenever a plant block is found.
+     * Marks the enclosing sub-section so subsequent blocks in the same section
+     * skip the empty-section fast-exit (we know it has plants).
+     */
+    @Unique
+    private void cullify$markVegetation(int lx, int ly, int lz) {
+        if (lx >= 0 && lx <= 2 && ly >= 0 && ly <= 2 && lz >= 0 && lz <= 2) {
+            cullify$hasVegetation[ly * 9 + lz * 3 + lx] = true;
         }
     }
 }

@@ -56,6 +56,21 @@ public class CullifyConfigScreen extends Screen {
             }
         ).bounds(col1X, centerY + 15, btnW, btnH).build());
 
+        this.addRenderableWidget(Button.builder(
+            getLodDensityText(),
+            btn -> {
+                int current = CullifyConfig.LOD_DENSITY.get();
+                int next;
+                if (current >= 100) next = 75;
+                else if (current >= 75)  next = 50;
+                else if (current >= 50)  next = 25;
+                else                     next = 100;
+                CullifyConfig.LOD_DENSITY.set(next);
+                btn.setMessage(getLodDensityText());
+                onConfigChange();
+            }
+        ).bounds(col1X, centerY + 40, btnW, btnH).build());
+
         // Right column: vegetation types culling and distances
         this.addRenderableWidget(Button.builder(
             getGrassText(),
@@ -144,6 +159,16 @@ public class CullifyConfigScreen extends Screen {
 
     private Component getDebugModeText() {
         return Component.literal("Debug HUD: " + (CullifyConfig.DEBUG_MODE.get() ? "§aON" : "§cOFF"));
+    }
+
+    private Component getLodDensityText() {
+        int d = CullifyConfig.LOD_DENSITY.get();
+        String label;
+        if (d >= 100) label = "§aOFF";
+        else if (d >= 75) label = "§e75%";
+        else if (d >= 50) label = "§650%";
+        else              label = "§c25%";
+        return Component.literal("LOD Density: " + label);
     }
 
     private Component getShapeText() {

@@ -24,6 +24,7 @@ public class CullifyConfig {
     public static final ModConfigSpec.IntValue FLOWER_CULL_DISTANCE;
     public static final ModConfigSpec.IntValue OTHER_PLANT_CULL_DISTANCE;
     public static final ModConfigSpec.BooleanValue DEBUG_MODE;
+    public static final ModConfigSpec.IntValue LOD_DENSITY;
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
@@ -65,6 +66,12 @@ public class CullifyConfig {
         DEBUG_MODE = builder
                 .comment("Enable debug overlay HUD to show culling stats and configuration status.")
                 .define("debugMode", false);
+
+        LOD_DENSITY = builder
+                .comment("LOD density filter (0-100). 100 = keep all plants (disabled). Lower values thin out "
+                        + "plants near the culling boundary using a deterministic hash — no flickering. "
+                        + "50 = keep 50% of plants in the outer zone. Saves CPU at medium distances.")
+                .defineInRange("lodDensity", 100, 0, 100);
 
         builder.pop();
         SPEC = builder.build();
