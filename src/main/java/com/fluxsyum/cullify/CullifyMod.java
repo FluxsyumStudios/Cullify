@@ -8,10 +8,10 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.config.ModConfig;
-import net.neoforged.fml.event.config.ModConfigEvent;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.config.ModConfig;
+import net.minecraftforge.fml.event.config.ModConfigEvent;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 
 @Mod(CullifyMod.MOD_ID)
 public class CullifyMod {
@@ -30,31 +30,56 @@ public class CullifyMod {
     public static volatile double playerZ = 0;
     public static volatile boolean hasPlayer = false;
 
-    public CullifyMod(ModContainer modContainer) {
-        modContainer.registerConfig(ModConfig.Type.CLIENT, CullifyConfig.SPEC);
-        modContainer.getEventBus().addListener(this::onClientSetup);
-        modContainer.getEventBus().addListener(this::onConfigReload);
+    public CullifyMod() {
+        net.minecraftforge.fml.ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, CullifyConfig.SPEC);
+        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::onClientSetup);
+        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::onConfigReload);
 
-        if (net.neoforged.fml.loading.FMLEnvironment.dist.isClient()) {
-            com.fluxsyum.cullify.client.ClientModBusSubscriber.register(modContainer.getEventBus());
+        if (net.minecraftforge.fml.loading.FMLEnvironment.dist.isClient()) {
+            com.fluxsyum.cullify.client.ClientModBusSubscriber.register(FMLJavaModLoadingContext.get().getModEventBus());
         }
     }
 
-    private void onClientSetup(net.neoforged.fml.event.lifecycle.FMLClientSetupEvent event) {
+    private void onClientSetup(net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent event) {
+        // Detect Sodium/Embeddium using the same logic as the mixin plugin.
+        // The mixin plugin already ran Class.forName checks at transform time;
+        // we replicate them here so the debug HUD reflects the correct renderer.
+        boolean sodiumFound = false;
+
+        String[] sodiumClasses = {
+            "me.jellysquid.mods.sodium.client.world.LevelSlice",
+            "org.embeddedt.embeddium.client.world.LevelSlice",
+            "me.jellysquid.mods.sodium.client.render.chunk.compile.pipeline.BlockRenderContext"
+        };
+        for (String cls : sodiumClasses) {
+            try {
+                Class.forName(cls, false, this.getClass().getClassLoader());
+                sodiumFound = true;
+                break;
+            } catch (Throwable ignored) {}
+        }
+
+        // Fallback: LoadingModList (may be ready by this point)
+        if (!sodiumFound) {
+            try {
+                net.minecraftforge.fml.loading.LoadingModList list = net.minecraftforge.fml.loading.LoadingModList.get();
+                if (list != null && (list.getModFileById("sodium") != null || list.getModFileById("embeddium") != null)) {
+                    sodiumFound = true;
+                }
+            } catch (Throwable ignored) {}
+        }
+
+        CullifyDebugManager.sodiumDetected = sodiumFound;
+
+        // Try to register Sodium Options API integration
         try {
             Class.forName("toni.sodiumoptionsapi.api.OptionGUIConstruction", false, this.getClass().getClassLoader());
             Class<?> compatClass = Class.forName("com.fluxsyum.cullify.compat.SodiumCompat");
             compatClass.getMethod("registerOptions").invoke(null);
         } catch (Throwable ignored) {
         }
-
-        try {
-            Class.forName("net.caffeinemc.mods.sodium.client.world.LevelSlice", false, this.getClass().getClassLoader());
-            CullifyDebugManager.sodiumDetected = true;
-        } catch (Throwable ignored) {
-            CullifyDebugManager.sodiumDetected = false;
-        }
     }
+
 
     private void onConfigReload(ModConfigEvent event) {
         if (event.getConfig().getModId().equals(MOD_ID)) {

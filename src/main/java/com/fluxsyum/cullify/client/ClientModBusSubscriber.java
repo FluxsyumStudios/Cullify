@@ -5,19 +5,19 @@ import com.fluxsyum.cullify.CullifyDebugManager;
 import com.fluxsyum.cullify.CullifyMod;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
-import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
-import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
+import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;
+import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
+import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
 
 public class ClientModBusSubscriber {
 
-    private static final ResourceLocation LOGO_RL = ResourceLocation.fromNamespaceAndPath(CullifyMod.MOD_ID, "textures/gui/logo.png");
+    private static final ResourceLocation LOGO_RL = new ResourceLocation(CullifyMod.MOD_ID, "textures/gui/logo.png");
     public static net.minecraft.client.KeyMapping configKeyMapping;
 
-    // Registers mod event bus listeners manually to avoid deprecated EventBusSubscriber annotation
-    public static void register(net.neoforged.bus.api.IEventBus modEventBus) {
-        modEventBus.addListener(ClientModBusSubscriber::registerGuiLayers);
+    // Registers mod event bus listeners manually
+    public static void register(net.minecraftforge.eventbus.api.IEventBus modEventBus) {
+        modEventBus.addListener(ClientModBusSubscriber::registerGuiOverlays);
         modEventBus.addListener(ClientModBusSubscriber::registerKeyMappings);
     }
 
@@ -30,11 +30,11 @@ public class ClientModBusSubscriber {
         event.register(configKeyMapping);
     }
 
-    public static void registerGuiLayers(RegisterGuiLayersEvent event) {
+    public static void registerGuiOverlays(RegisterGuiOverlaysEvent event) {
         event.registerAbove(
-            net.neoforged.neoforge.client.gui.VanillaGuiLayers.HOTBAR,
-            ResourceLocation.fromNamespaceAndPath(CullifyMod.MOD_ID, "debug_hud"),
-            (graphics, deltaTracker) -> {
+            VanillaGuiOverlay.HOTBAR.id(),
+            "debug_hud",
+            (gui, graphics, partialTick, width, height) -> {
                 Minecraft mc = Minecraft.getInstance();
                 if (mc.options.hideGui || mc.gameMode == null) {
                     return;
@@ -94,4 +94,3 @@ public class ClientModBusSubscriber {
         );
     }
 }
-

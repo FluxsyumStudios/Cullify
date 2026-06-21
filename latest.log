@@ -1,0 +1,157 @@
+[11:22:29] [main/INFO]: ModLauncher running: args [--username, yOstrix, --version, forge-47.4.10, --gameDir, C:\Users\yOstrix\curseforge\minecraft\Instances\Cullify, --assetsDir, C:\Users\yOstrix\curseforge\minecraft\Install\assets, --assetIndex, 5, --uuid, ec48b409d8a44077a2e29ae9deff7805, --accessToken, ????????, --clientId, 3dcbe3-d48cf0-664a8d-1072c2e-1094a88, --xuid, 2535416289531637, --userType, msa, --versionType, release, --width, 1024, --height, 768, --quickPlayPath, C:\Users\yOstrix\curseforge\minecraft\Quickplay\145d2d48-474f-4491-93f7-2d78ff7307d6.json, , , , --launchTarget, forgeclient, --fml.forgeVersion, 47.4.10, --fml.mcVersion, 1.20.1, --fml.forgeGroup, net.minecraftforge, --fml.mcpVersion, 20230612.114412]
+[11:22:29] [main/INFO]: ModLauncher 10.0.9+10.0.9+main.dcd20f30 starting: java version 17.0.8 by Eclipse Adoptium; OS Windows 11 arch amd64 version 10.0
+[11:22:29] [main/INFO]: Loading ImmediateWindowProvider fmlearlywindow
+[11:22:30] [main/INFO]: Trying GL version 4.6
+[11:22:30] [main/INFO]: Requested GL version 4.6 got version 4.6
+[11:22:30] [main/INFO]: SpongePowered MIXIN Subsystem Version=0.8.5 Source=union:/C:/Users/yOstrix/curseforge/minecraft/Install/libraries/org/spongepowered/mixin/0.8.5/mixin-0.8.5.jar%23100!/ Service=ModLauncher Env=CLIENT
+[11:22:30] [pool-2-thread-1/INFO]: GL info: NVIDIA GeForce GTX 1060 6GB/PCIe/SSE2 GL version 4.6.0 NVIDIA 582.66, NVIDIA Corporation
+[11:22:30] [main/INFO]: Found mod file alltheleaks-1.1.1+1.20.1-forge.jar of type MOD with provider {mods folder locator at C:\Users\yOstrix\curseforge\minecraft\Instances\Cullify\mods}
+[11:22:30] [main/INFO]: Found mod file chloride-FORGE-mc1.20.1-v1.7.7.jar of type MOD with provider {mods folder locator at C:\Users\yOstrix\curseforge\minecraft\Instances\Cullify\mods}
+[11:22:30] [main/INFO]: Found mod file cullify-1.0.0.jar of type MOD with provider {mods folder locator at C:\Users\yOstrix\curseforge\minecraft\Instances\Cullify\mods}
+[11:22:30] [main/INFO]: Found mod file embeddium-0.3.31+mc1.20.1.jar of type MOD with provider {mods folder locator at C:\Users\yOstrix\curseforge\minecraft\Instances\Cullify\mods}
+[11:22:30] [main/INFO]: Found mod file entityculling-forge-1.10.5-mc1.20.1.jar of type MOD with provider {mods folder locator at C:\Users\yOstrix\curseforge\minecraft\Instances\Cullify\mods}
+[11:22:30] [main/INFO]: Found mod file ferritecore-6.0.1-forge.jar of type MOD with provider {mods folder locator at C:\Users\yOstrix\curseforge\minecraft\Instances\Cullify\mods}
+[11:22:30] [main/INFO]: Found mod file gpumemleakfix-1.20.1-1.8.jar of type MOD with provider {mods folder locator at C:\Users\yOstrix\curseforge\minecraft\Instances\Cullify\mods}
+[11:22:30] [main/INFO]: Found mod file ImmediatelyFast-Forge-1.5.4+1.20.4.jar of type MOD with provider {mods folder locator at C:\Users\yOstrix\curseforge\minecraft\Instances\Cullify\mods}
+[11:22:30] [main/INFO]: Found mod file modernfix-forge-5.27.51+mc1.20.1.jar of type MOD with provider {mods folder locator at C:\Users\yOstrix\curseforge\minecraft\Instances\Cullify\mods}
+[11:22:30] [main/INFO]: Found mod file sodiumdynamiclights-forge-1.0.10-1.20.1.jar of type MOD with provider {mods folder locator at C:\Users\yOstrix\curseforge\minecraft\Instances\Cullify\mods}
+[11:22:30] [main/INFO]: Found mod file sodiumoptionsapi-forge-1.0.10-1.20.1.jar of type MOD with provider {mods folder locator at C:\Users\yOstrix\curseforge\minecraft\Instances\Cullify\mods}
+[11:22:30] [main/INFO]: Found mod file sodiumoptionsmodcompat-forge-1.0.0-1.20.1.jar of type MOD with provider {mods folder locator at C:\Users\yOstrix\curseforge\minecraft\Instances\Cullify\mods}
+[11:22:30] [main/WARN]: Mod file C:\Users\yOstrix\curseforge\minecraft\Install\libraries\net\minecraftforge\fmlcore\1.20.1-47.4.10\fmlcore-1.20.1-47.4.10.jar is missing mods.toml file
+[11:22:30] [main/WARN]: Mod file C:\Users\yOstrix\curseforge\minecraft\Install\libraries\net\minecraftforge\javafmllanguage\1.20.1-47.4.10\javafmllanguage-1.20.1-47.4.10.jar is missing mods.toml file
+[11:22:30] [main/WARN]: Mod file C:\Users\yOstrix\curseforge\minecraft\Install\libraries\net\minecraftforge\lowcodelanguage\1.20.1-47.4.10\lowcodelanguage-1.20.1-47.4.10.jar is missing mods.toml file
+[11:22:30] [main/WARN]: Mod file C:\Users\yOstrix\curseforge\minecraft\Install\libraries\net\minecraftforge\mclanguage\1.20.1-47.4.10\mclanguage-1.20.1-47.4.10.jar is missing mods.toml file
+[11:22:31] [main/INFO]: Found mod file fmlcore-1.20.1-47.4.10.jar of type LIBRARY with provider net.minecraftforge.fml.loading.moddiscovery.MinecraftLocator@3af9aa66
+[11:22:31] [main/INFO]: Found mod file javafmllanguage-1.20.1-47.4.10.jar of type LANGPROVIDER with provider net.minecraftforge.fml.loading.moddiscovery.MinecraftLocator@3af9aa66
+[11:22:31] [main/INFO]: Found mod file lowcodelanguage-1.20.1-47.4.10.jar of type LANGPROVIDER with provider net.minecraftforge.fml.loading.moddiscovery.MinecraftLocator@3af9aa66
+[11:22:31] [main/INFO]: Found mod file mclanguage-1.20.1-47.4.10.jar of type LANGPROVIDER with provider net.minecraftforge.fml.loading.moddiscovery.MinecraftLocator@3af9aa66
+[11:22:31] [main/INFO]: Found mod file client-1.20.1-20230612.114412-srg.jar of type MOD with provider net.minecraftforge.fml.loading.moddiscovery.MinecraftLocator@3af9aa66
+[11:22:31] [main/INFO]: Found mod file forge-1.20.1-47.4.10-universal.jar of type MOD with provider net.minecraftforge.fml.loading.moddiscovery.MinecraftLocator@3af9aa66
+[11:22:31] [main/INFO]: Found 8 dependencies adding them to mods collection
+[11:22:31] [main/INFO]: Found mod file fabric-api-base-0.4.31+ef105b4977.jar of type MOD with provider net.minecraftforge.fml.loading.moddiscovery.JarInJarDependencyLocator@f2e4acf
+[11:22:31] [main/INFO]: Found mod file TRender-1.0.15-1.20.1-forge-SNAPSHOT.jar of type MOD with provider net.minecraftforge.fml.loading.moddiscovery.JarInJarDependencyLocator@f2e4acf
+[11:22:31] [main/INFO]: Found mod file MixinExtras-0.5.0.jar of type GAMELIBRARY with provider net.minecraftforge.fml.loading.moddiscovery.JarInJarDependencyLocator@f2e4acf
+[11:22:31] [main/INFO]: Found mod file Reflect-1.6.1+curseforge.jar of type GAMELIBRARY with provider net.minecraftforge.fml.loading.moddiscovery.JarInJarDependencyLocator@f2e4acf
+[11:22:31] [main/INFO]: Found mod file mixinsquared-forge-0.3.6-beta.1.jar of type GAMELIBRARY with provider net.minecraftforge.fml.loading.moddiscovery.JarInJarDependencyLocator@f2e4acf
+[11:22:31] [main/INFO]: Found mod file mixinextras-forge-0.5.0.jar of type GAMELIBRARY with provider net.minecraftforge.fml.loading.moddiscovery.JarInJarDependencyLocator@f2e4acf
+[11:22:31] [main/INFO]: Found mod file MixinSquared-0.3.6-beta.1.jar of type GAMELIBRARY with provider net.minecraftforge.fml.loading.moddiscovery.JarInJarDependencyLocator@f2e4acf
+[11:22:31] [main/INFO]: Found mod file TRansition-1.0.21-1.20.1-forge-SNAPSHOT.jar of type MOD with provider net.minecraftforge.fml.loading.moddiscovery.JarInJarDependencyLocator@f2e4acf
+[11:22:32] [main/INFO]: Compatibility level set to JAVA_17
+[11:22:32] [main/INFO]: Launching target 'forgeclient' with arguments [--version, forge-47.4.10, --gameDir, C:\Users\yOstrix\curseforge\minecraft\Instances\Cullify, --assetsDir, C:\Users\yOstrix\curseforge\minecraft\Install\assets, --uuid, ec48b409d8a44077a2e29ae9deff7805, --username, yOstrix, --assetIndex, 5, --accessToken, ????????, --clientId, 3dcbe3-d48cf0-664a8d-1072c2e-1094a88, --xuid, 2535416289531637, --userType, msa, --versionType, release, --width, 1024, --height, 768, --quickPlayPath, C:\Users\yOstrix\curseforge\minecraft\Quickplay\145d2d48-474f-4491-93f7-2d78ff7307d6.json, , , ]
+[11:22:32] [main/INFO]: Loaded configuration file for Embeddium: 63 options available, 0 override(s) found
+[11:22:32] [main/INFO]: Searching for graphics cards...
+[11:22:33] [main/INFO]: Found graphics card: GraphicsAdapterInfo[vendor=AMD, name=AMD Radeon(TM) Graphics, version=DriverVersion=31.0.12027.9001]
+[11:22:33] [main/INFO]: Found graphics card: GraphicsAdapterInfo[vendor=NVIDIA, name=NVIDIA GeForce GTX 1060 6GB, version=DriverVersion=32.0.15.8266]
+[11:22:33] [main/WARN]: Embeddium has applied one or more workarounds to prevent crashes or other issues on your system: [NVIDIA_THREADED_OPTIMIZATIONS]
+[11:22:33] [main/WARN]: This is not necessarily an issue, but it may result in certain features or optimizations being disabled. You can sometimes fix these issues by upgrading your graphics driver.
+[11:22:33] [main/INFO]: Loaded configuration file for ModernFix 5.27.51+mc1.20.1: 109 options available, 0 override(s) found
+[11:22:33] [main/INFO]: Applying Nashorn fix
+[11:22:33] [main/INFO]: Applied Forge config corruption patch
+[11:22:33] [main/INFO]: Configuring Minecraft's max.bg.threads option with 9 threads
+[11:22:33] [main/WARN]: Error loading class: dynamic_fps/impl/DynamicFPSMod (java.lang.ClassNotFoundException: dynamic_fps.impl.DynamicFPSMod)
+[11:22:33] [main/WARN]: @Mixin target dynamic_fps.impl.DynamicFPSMod was not found mixins.sodiumoptionsmodcompat.json:DynamicFPSConfigAccessor
+[11:22:33] [main/INFO]: Class dev.uncandango.alltheleaks.leaks.common.mods.minecraft.UntrackedIssue002 will be loaded as it matches versions: 1.20.1 in 1.20.1
+[11:22:33] [main/INFO]: Mixins added to allowed list: [main.EntityTickListMixin]
+[11:22:33] [main/INFO]: Class dev.uncandango.alltheleaks.leaks.common.mods.minecraft.UntrackedIssue001 will be loaded as it matches versions: 1.20.1 in 1.20.1
+[11:22:33] [main/INFO]: Class dev.uncandango.alltheleaks.leaks.common.mods.forge.UntrackedIssue002 will be loaded as it matches versions: 47.4.10 in [47.2,)
+[11:22:33] [main/INFO]: Mixins added to allowed list: [accessor.FakePlayerNetHandlerAccessor, accessor.ConnectionAccessor]
+[11:22:33] [main/INFO]: Class dev.uncandango.alltheleaks.leaks.common.mods.forge.UntrackedIssue001 will be loaded as it matches versions: 47.4.10 in [47.2,)
+[11:22:33] [main/INFO]: Mixins added to allowed list: [main.ServerPlayerMixin, main.PlayerListMixin, accessor.PlayerAdvancementsAccessor]
+[11:22:33] [main/INFO]: Class dev.uncandango.alltheleaks.leaks.common.mods.forge.Issue39 will be loaded as it matches versions: 47.4.10 in [47.2,)
+[11:22:33] [main/INFO]: Class dev.uncandango.alltheleaks.leaks.common.mods.forge.Issue10684 will be loaded as it matches versions: 47.4.10 in *
+[11:22:33] [main/INFO]: Class dev.uncandango.alltheleaks.leaks.client.mods.minecraft.UntrackedIssue001 will be loaded as it matches versions: 1.20.1 in 1.20.1
+[11:22:33] [main/INFO]: Mixins added to allowed list: [main.ATLItemStackMixin, main.MinecraftMixin, main.SynchedEntityDataMixin]
+[11:22:33] [main/INFO]: Class dev.uncandango.alltheleaks.fix.common.mods.modernfix.CancelRLMixin will be loaded as it matches versions: 5.27.51+mc1.20.1 in [5.0.0,)
+[11:22:33] [main/INFO]: Mixins added to cancel list: [org.embeddedt.modernfix.common.mixin.perf.deduplicate_location.MixinResourceLocation]
+[11:22:33] [main/INFO]: Class dev.uncandango.alltheleaks.feature.common.mods.minecraft.MemoryMonitor will be loaded as it matches versions: 1.20.1 in 1.20.1
+[11:22:33] [main/INFO]: Mixins added to allowed list: [main.PlayerMixin, main.ChunkAccessMixin, main.LevelMixin, main.MinecraftServerMixin]
+[11:22:33] [main/INFO]: Class dev.uncandango.alltheleaks.feature.common.mods.minecraft.ClearLeakedLevelChunks will be loaded as it matches versions: 1.20.1 in 1.20.1
+[11:22:33] [main/INFO]: Mixins added to allowed list: [accessor.LevelAccessor, main.RebindableTickingBlockEntityWrapperMixin, accessor.LevelChunkAccessor]
+[11:22:34] [main/WARN]: Error loading class: net/caffeinemc/mods/sodium/client/model/light/data/ArrayLightDataCache (java.lang.ClassNotFoundException: net.caffeinemc.mods.sodium.client.model.light.data.ArrayLightDataCache)
+[11:22:34] [main/WARN]: Error loading class: net/caffeinemc/mods/sodium/client/model/light/flat/FlatLightPipeline (java.lang.ClassNotFoundException: net.caffeinemc.mods.sodium.client.model.light.flat.FlatLightPipeline)
+[11:22:34] [main/WARN]: Error loading class: net/caffeinemc/mods/sodium/client/model/light/data/LightDataAccess (java.lang.ClassNotFoundException: net.caffeinemc.mods.sodium.client.model.light.data.LightDataAccess)
+[11:22:34] [main/WARN]: Error loading class: net/fabricmc/fabric/impl/client/indigo/renderer/aocalc/AoCalculator (java.lang.ClassNotFoundException: net.fabricmc.fabric.impl.client.indigo.renderer.aocalc.AoCalculator)
+[11:22:34] [main/WARN]: Error loading class: dev/emi/emi/screen/EmiScreenManager (java.lang.ClassNotFoundException: dev.emi.emi.screen.EmiScreenManager)
+[11:22:34] [main/WARN]: Error loading class: mezz/jei/gui/overlay/IngredientListOverlay (java.lang.ClassNotFoundException: mezz.jei.gui.overlay.IngredientListOverlay)
+[11:22:34] [main/WARN]: Error loading class: me/shedaniel/rei/impl/client/gui/ScreenOverlayImpl (java.lang.ClassNotFoundException: me.shedaniel.rei.impl.client.gui.ScreenOverlayImpl)
+[11:22:34] [main/FATAL]: Mixin prepare failed preparing MixinLevelSlice in cullify.mixins.json: org.spongepowered.asm.mixin.transformer.throwables.MixinTargetAlreadyLoadedException Critical problem: cullify.mixins.json:MixinLevelSlice target me.jellysquid.mods.sodium.client.world.LevelSlice was loaded too early.
+org.spongepowered.asm.mixin.transformer.throwables.MixinTargetAlreadyLoadedException: Critical problem: cullify.mixins.json:MixinLevelSlice target me.jellysquid.mods.sodium.client.world.LevelSlice was loaded too early.
+	at org.spongepowered.asm.mixin.transformer.MixinInfo.readDeclaredTargets(MixinInfo.java:947) ~[mixin-0.8.5.jar:0.8.5+Jenkins-b310.git-155314e6e91465dad727e621a569906a410cd6f4]
+	at org.spongepowered.asm.mixin.transformer.MixinInfo.<init>(MixinInfo.java:881) ~[mixin-0.8.5.jar:0.8.5+Jenkins-b310.git-155314e6e91465dad727e621a569906a410cd6f4]
+	at org.spongepowered.asm.mixin.transformer.MixinConfig.prepareMixins(MixinConfig.java:850) ~[mixin-0.8.5.jar:0.8.5+Jenkins-b310.git-155314e6e91465dad727e621a569906a410cd6f4]
+	at org.spongepowered.asm.mixin.transformer.MixinConfig.prepare(MixinConfig.java:775) ~[mixin-0.8.5.jar:0.8.5+Jenkins-b310.git-155314e6e91465dad727e621a569906a410cd6f4]
+	at org.spongepowered.asm.mixin.transformer.MixinProcessor.prepareConfigs(MixinProcessor.java:539) ~[mixin-0.8.5.jar:0.8.5+Jenkins-b310.git-155314e6e91465dad727e621a569906a410cd6f4]
+	at org.spongepowered.asm.mixin.transformer.MixinProcessor.select(MixinProcessor.java:462) ~[mixin-0.8.5.jar:0.8.5+Jenkins-b310.git-155314e6e91465dad727e621a569906a410cd6f4]
+	at org.spongepowered.asm.mixin.transformer.MixinProcessor.checkSelect(MixinProcessor.java:438) ~[mixin-0.8.5.jar:0.8.5+Jenkins-b310.git-155314e6e91465dad727e621a569906a410cd6f4]
+	at org.spongepowered.asm.mixin.transformer.MixinProcessor.applyMixins(MixinProcessor.java:290) ~[mixin-0.8.5.jar:0.8.5+Jenkins-b310.git-155314e6e91465dad727e621a569906a410cd6f4]
+	at org.spongepowered.asm.mixin.transformer.MixinTransformer.transformClass(MixinTransformer.java:250) ~[mixin-0.8.5.jar:0.8.5+Jenkins-b310.git-155314e6e91465dad727e621a569906a410cd6f4]
+	at org.spongepowered.asm.service.modlauncher.MixinTransformationHandler.processClass(MixinTransformationHandler.java:131) ~[mixin-0.8.5.jar:0.8.5+Jenkins-b310.git-155314e6e91465dad727e621a569906a410cd6f4]
+	at org.spongepowered.asm.launch.MixinLaunchPluginLegacy.processClass(MixinLaunchPluginLegacy.java:131) ~[mixin-0.8.5.jar:0.8.5+Jenkins-b310.git-155314e6e91465dad727e621a569906a410cd6f4]
+	at cpw.mods.modlauncher.serviceapi.ILaunchPluginService.processClassWithFlags(ILaunchPluginService.java:156) ~[modlauncher-10.0.9.jar:10.0.9+10.0.9+main.dcd20f30]
+	at cpw.mods.modlauncher.LaunchPluginHandler.offerClassNodeToPlugins(LaunchPluginHandler.java:88) ~[modlauncher-10.0.9.jar:?]
+	at cpw.mods.modlauncher.ClassTransformer.transform(ClassTransformer.java:120) ~[modlauncher-10.0.9.jar:?]
+	at cpw.mods.modlauncher.TransformingClassLoader.maybeTransformClassBytes(TransformingClassLoader.java:50) ~[modlauncher-10.0.9.jar:?]
+	at cpw.mods.cl.ModuleClassLoader.readerToClass(ModuleClassLoader.java:113) ~[securejarhandler-2.1.10.jar:?]
+	at cpw.mods.cl.ModuleClassLoader.lambda$findClass$15(ModuleClassLoader.java:219) ~[securejarhandler-2.1.10.jar:?]
+	at cpw.mods.cl.ModuleClassLoader.loadFromModule(ModuleClassLoader.java:229) ~[securejarhandler-2.1.10.jar:?]
+	at cpw.mods.cl.ModuleClassLoader.findClass(ModuleClassLoader.java:219) ~[securejarhandler-2.1.10.jar:?]
+	at java.lang.ClassLoader.loadClass(Unknown Source) ~[?:?]
+	at java.lang.Class.forName(Unknown Source) ~[?:?]
+	at net.minecraftforge.fml.earlydisplay.DisplayWindow.lambda$updateModuleReads$13(DisplayWindow.java:615) ~[fmlearlydisplay-1.20.1-47.4.10.jar:1.0]
+	at java.util.Optional.map(Unknown Source) ~[?:?]
+	at net.minecraftforge.fml.earlydisplay.DisplayWindow.updateModuleReads(DisplayWindow.java:615) ~[fmlearlydisplay-1.20.1-47.4.10.jar:1.0]
+	at net.minecraftforge.fml.loading.ImmediateWindowHandler.acceptGameLayer(ImmediateWindowHandler.java:71) ~[fmlloader-1.20.1-47.4.10.jar:1.0]
+	at net.minecraftforge.fml.loading.FMLLoader.beforeStart(FMLLoader.java:216) ~[fmlloader-1.20.1-47.4.10.jar:1.0]
+	at net.minecraftforge.fml.loading.targets.CommonLaunchHandler.launchService(CommonLaunchHandler.java:92) ~[fmlloader-1.20.1-47.4.10.jar:?]
+	at cpw.mods.modlauncher.LaunchServiceHandlerDecorator.launch(LaunchServiceHandlerDecorator.java:30) ~[modlauncher-10.0.9.jar:?]
+	at cpw.mods.modlauncher.LaunchServiceHandler.launch(LaunchServiceHandler.java:53) ~[modlauncher-10.0.9.jar:?]
+	at cpw.mods.modlauncher.LaunchServiceHandler.launch(LaunchServiceHandler.java:71) ~[modlauncher-10.0.9.jar:?]
+	at cpw.mods.modlauncher.Launcher.run(Launcher.java:108) ~[modlauncher-10.0.9.jar:?]
+	at cpw.mods.modlauncher.Launcher.main(Launcher.java:78) ~[modlauncher-10.0.9.jar:?]
+	at cpw.mods.modlauncher.BootstrapLaunchConsumer.accept(BootstrapLaunchConsumer.java:26) ~[modlauncher-10.0.9.jar:?]
+	at cpw.mods.modlauncher.BootstrapLaunchConsumer.accept(BootstrapLaunchConsumer.java:23) ~[modlauncher-10.0.9.jar:?]
+	at cpw.mods.bootstraplauncher.BootstrapLauncher.main(BootstrapLauncher.java:141) ~[bootstraplauncher-1.1.2.jar:?]
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: java.lang.RuntimeException: org.spongepowered.asm.mixin.throwables.MixinApplyError: Mixin [cullify.mixins.json:MixinLevelSlice] from phase [DEFAULT] in config [cullify.mixins.json] FAILED during PREPARE
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at MC-BOOTSTRAP/cpw.mods.modlauncher@10.0.9/cpw.mods.modlauncher.LaunchServiceHandlerDecorator.launch(LaunchServiceHandlerDecorator.java:32)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at MC-BOOTSTRAP/cpw.mods.modlauncher@10.0.9/cpw.mods.modlauncher.LaunchServiceHandler.launch(LaunchServiceHandler.java:53)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at MC-BOOTSTRAP/cpw.mods.modlauncher@10.0.9/cpw.mods.modlauncher.LaunchServiceHandler.launch(LaunchServiceHandler.java:71)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at MC-BOOTSTRAP/cpw.mods.modlauncher@10.0.9/cpw.mods.modlauncher.Launcher.run(Launcher.java:108)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at MC-BOOTSTRAP/cpw.mods.modlauncher@10.0.9/cpw.mods.modlauncher.Launcher.main(Launcher.java:78)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at MC-BOOTSTRAP/cpw.mods.modlauncher@10.0.9/cpw.mods.modlauncher.BootstrapLaunchConsumer.accept(BootstrapLaunchConsumer.java:26)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at MC-BOOTSTRAP/cpw.mods.modlauncher@10.0.9/cpw.mods.modlauncher.BootstrapLaunchConsumer.accept(BootstrapLaunchConsumer.java:23)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at cpw.mods.bootstraplauncher@1.1.2/cpw.mods.bootstraplauncher.BootstrapLauncher.main(BootstrapLauncher.java:141)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: Caused by: org.spongepowered.asm.mixin.throwables.MixinApplyError: Mixin [cullify.mixins.json:MixinLevelSlice] from phase [DEFAULT] in config [cullify.mixins.json] FAILED during PREPARE
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at MC-BOOTSTRAP/org.spongepowered.mixin/org.spongepowered.asm.mixin.transformer.MixinProcessor.handleMixinError(MixinProcessor.java:636)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at MC-BOOTSTRAP/org.spongepowered.mixin/org.spongepowered.asm.mixin.transformer.MixinProcessor.handleMixinPrepareError(MixinProcessor.java:584)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at MC-BOOTSTRAP/org.spongepowered.mixin/org.spongepowered.asm.mixin.transformer.MixinProcessor.prepareConfigs(MixinProcessor.java:542)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at MC-BOOTSTRAP/org.spongepowered.mixin/org.spongepowered.asm.mixin.transformer.MixinProcessor.select(MixinProcessor.java:462)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at MC-BOOTSTRAP/org.spongepowered.mixin/org.spongepowered.asm.mixin.transformer.MixinProcessor.checkSelect(MixinProcessor.java:438)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at MC-BOOTSTRAP/org.spongepowered.mixin/org.spongepowered.asm.mixin.transformer.MixinProcessor.applyMixins(MixinProcessor.java:290)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at MC-BOOTSTRAP/org.spongepowered.mixin/org.spongepowered.asm.mixin.transformer.MixinTransformer.transformClass(MixinTransformer.java:250)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at MC-BOOTSTRAP/org.spongepowered.mixin/org.spongepowered.asm.service.modlauncher.MixinTransformationHandler.processClass(MixinTransformationHandler.java:131)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at MC-BOOTSTRAP/org.spongepowered.mixin/org.spongepowered.asm.launch.MixinLaunchPluginLegacy.processClass(MixinLaunchPluginLegacy.java:131)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at MC-BOOTSTRAP/cpw.mods.modlauncher@10.0.9/cpw.mods.modlauncher.serviceapi.ILaunchPluginService.processClassWithFlags(ILaunchPluginService.java:156)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at MC-BOOTSTRAP/cpw.mods.modlauncher@10.0.9/cpw.mods.modlauncher.LaunchPluginHandler.offerClassNodeToPlugins(LaunchPluginHandler.java:88)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at MC-BOOTSTRAP/cpw.mods.modlauncher@10.0.9/cpw.mods.modlauncher.ClassTransformer.transform(ClassTransformer.java:120)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at MC-BOOTSTRAP/cpw.mods.modlauncher@10.0.9/cpw.mods.modlauncher.TransformingClassLoader.maybeTransformClassBytes(TransformingClassLoader.java:50)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at cpw.mods.securejarhandler/cpw.mods.cl.ModuleClassLoader.readerToClass(ModuleClassLoader.java:113)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at cpw.mods.securejarhandler/cpw.mods.cl.ModuleClassLoader.lambda$findClass$15(ModuleClassLoader.java:219)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at cpw.mods.securejarhandler/cpw.mods.cl.ModuleClassLoader.loadFromModule(ModuleClassLoader.java:229)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at cpw.mods.securejarhandler/cpw.mods.cl.ModuleClassLoader.findClass(ModuleClassLoader.java:219)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at java.base/java.lang.ClassLoader.loadClass(Unknown Source)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at java.base/java.lang.Class.forName(Unknown Source)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at MC-BOOTSTRAP/fmlearlydisplay@1.20.1-47.4.10/net.minecraftforge.fml.earlydisplay.DisplayWindow.lambda$updateModuleReads$13(DisplayWindow.java:615)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at java.base/java.util.Optional.map(Unknown Source)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at MC-BOOTSTRAP/fmlearlydisplay@1.20.1-47.4.10/net.minecraftforge.fml.earlydisplay.DisplayWindow.updateModuleReads(DisplayWindow.java:615)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at MC-BOOTSTRAP/fmlloader@1.20.1-47.4.10/net.minecraftforge.fml.loading.ImmediateWindowHandler.acceptGameLayer(ImmediateWindowHandler.java:71)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at MC-BOOTSTRAP/fmlloader@1.20.1-47.4.10/net.minecraftforge.fml.loading.FMLLoader.beforeStart(FMLLoader.java:216)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at MC-BOOTSTRAP/fmlloader@1.20.1-47.4.10/net.minecraftforge.fml.loading.targets.CommonLaunchHandler.launchService(CommonLaunchHandler.java:92)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	at MC-BOOTSTRAP/cpw.mods.modlauncher@10.0.9/cpw.mods.modlauncher.LaunchServiceHandlerDecorator.launch(LaunchServiceHandlerDecorator.java:30)
+[11:22:34] [main/INFO]: [java.lang.ThreadGroup:uncaughtException:-1]: 	... 7 more
+[11:22:34] [main/INFO]: [java.lang.Throwable:printStackTrace:-1]: Caused by: org.spongepowered.asm.mixin.transformer.throwables.MixinTargetAlreadyLoadedException: Critical problem: cullify.mixins.json:MixinLevelSlice target me.jellysquid.mods.sodium.client.world.LevelSlice was loaded too early.
+[11:22:34] [main/INFO]: [java.lang.Throwable:printStackTrace:-1]: 	at MC-BOOTSTRAP/org.spongepowered.mixin/org.spongepowered.asm.mixin.transformer.MixinInfo.readDeclaredTargets(MixinInfo.java:947)
+[11:22:34] [main/INFO]: [java.lang.Throwable:printStackTrace:-1]: 	at MC-BOOTSTRAP/org.spongepowered.mixin/org.spongepowered.asm.mixin.transformer.MixinInfo.<init>(MixinInfo.java:881)
+[11:22:34] [main/INFO]: [java.lang.Throwable:printStackTrace:-1]: 	at MC-BOOTSTRAP/org.spongepowered.mixin/org.spongepowered.asm.mixin.transformer.MixinConfig.prepareMixins(MixinConfig.java:850)
+[11:22:34] [main/INFO]: [java.lang.Throwable:printStackTrace:-1]: 	at MC-BOOTSTRAP/org.spongepowered.mixin/org.spongepowered.asm.mixin.transformer.MixinConfig.prepare(MixinConfig.java:775)
+[11:22:34] [main/INFO]: [java.lang.Throwable:printStackTrace:-1]: 	at MC-BOOTSTRAP/org.spongepowered.mixin/org.spongepowered.asm.mixin.transformer.MixinProcessor.prepareConfigs(MixinProcessor.java:539)
+[11:22:34] [main/INFO]: [java.lang.Throwable:printStackTrace:-1]: 	... 30 more

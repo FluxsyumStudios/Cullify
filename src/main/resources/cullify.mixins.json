@@ -2,7 +2,8 @@
   "required": true,
   "priority": 10000,
   "package": "com.fluxsyum.cullify.mixin",
-  "compatibilityLevel": "JAVA_21",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "cullify.refmap.json",
   "minVersion": "0.8.5",
   "plugin": "com.fluxsyum.cullify.mixin.CullifyMixinConfigPlugin",
   "mixins": [
@@ -11,8 +12,7 @@
     "MixinLevelSlice",
     "MixinLevelRenderer",
     "MixinLevelRendererDrawCalls",
-    "LevelRendererAccessor",
-    "ItemColorsAccessorMixin"
+    "LevelRendererAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -3,9 +3,9 @@ package com.fluxsyum.cullify.compat;
 import com.fluxsyum.cullify.CullifyConfig;
 import com.fluxsyum.cullify.CullifyMod;
 import com.google.common.collect.ImmutableList;
-import net.caffeinemc.mods.sodium.client.gui.options.*;
-import net.caffeinemc.mods.sodium.client.gui.options.control.*;
-import net.caffeinemc.mods.sodium.client.gui.options.storage.OptionStorage;
+import me.jellysquid.mods.sodium.client.gui.options.*;
+import me.jellysquid.mods.sodium.client.gui.options.control.*;
+import me.jellysquid.mods.sodium.client.gui.options.storage.OptionStorage;
 import net.minecraft.network.chat.Component;
 import toni.sodiumoptionsapi.api.OptionGUIConstruction;
 

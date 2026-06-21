@@ -20,7 +20,6 @@ Whether you are using Vanilla rendering or **Sodium/Embeddium**, Cullify is desi
 *   📊 **Real-time Statistics HUD**: Track how many blocks are culled, chunk updates, and water replacements in real time.
 *   🧪 **Sodium Compatibility**: Features custom integrations with Sodium's internal `LevelSlice` rendering pipeline and Sodium Options API.
 *   💾 **Auto-Save & Persistency**: All configurations save immediately to `config/cullify-client.toml`.
-*   🎭 **Minecraft Blur Integration**: Fully compatible with Minecraft 1.20.5+ native Menu Background Blur settings.
 
 ---
 

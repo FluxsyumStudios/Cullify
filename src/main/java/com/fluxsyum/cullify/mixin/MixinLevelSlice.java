@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * Optimizes culling for Sodium's LevelSlice by classifying the 27 adjacent chunk sections
  * into FULLY_CULLED, FULLY_KEPT, or STRADDLING states to avoid per-block calculations.
  */
-@Mixin(targets = "net.caffeinemc.mods.sodium.client.world.LevelSlice")
+@Mixin(targets = "me.jellysquid.mods.sodium.client.world.LevelSlice")
 public class MixinLevelSlice {
 
     @Shadow(remap = false) private int originBlockX;
@@ -96,7 +96,7 @@ public class MixinLevelSlice {
 
     // Secondary getBlockState hook for BlockPos lookup
     @Inject(method = "getBlockState(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/block/state/BlockState;",
-            at = @At("RETURN"), cancellable = true, remap = true)
+            at = @At("RETURN"), cancellable = true, remap = false)
     private void cullify$onGetBlockStatePos(net.minecraft.core.BlockPos pos, CallbackInfoReturnable<BlockState> cir) {
         if (!CullifyConfig.ENABLED.get() || !CullifyMod.hasPlayer) {
             return;

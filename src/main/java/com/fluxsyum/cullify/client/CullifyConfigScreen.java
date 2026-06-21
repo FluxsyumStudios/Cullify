@@ -189,7 +189,7 @@ public class CullifyConfigScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-        this.renderBackground(graphics, mouseX, mouseY, partialTicks);
+        this.renderBackground(graphics);
         
         int centerX = this.width / 2;
         int centerY = this.height / 2;
@@ -217,12 +217,7 @@ public class CullifyConfigScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-        if (this.minecraft.level != null) {
-            this.renderBlurredBackground(partialTicks);
-            this.renderTransparentBackground(graphics);
-        } else {
-            super.renderBackground(graphics, mouseX, mouseY, partialTicks);
-        }
+    public void renderBackground(GuiGraphics graphics) {
+        super.renderBackground(graphics);
     }
 }

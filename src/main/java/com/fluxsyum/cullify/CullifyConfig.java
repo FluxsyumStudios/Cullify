@@ -1,6 +1,6 @@
 package com.fluxsyum.cullify;
 
-import net.neoforged.neoforge.common.ModConfigSpec;
+import net.minecraftforge.common.ForgeConfigSpec;
 
 public class CullifyConfig {
     public enum CullingShape {
@@ -14,19 +14,19 @@ public class CullifyConfig {
         CIRCLE
     }
 
-    public static final ModConfigSpec SPEC;
-    public static final ModConfigSpec.BooleanValue ENABLED;
-    public static final ModConfigSpec.EnumValue<CullingShape> CULLING_SHAPE;
-    public static final ModConfigSpec.BooleanValue CULL_GRASS;
-    public static final ModConfigSpec.BooleanValue CULL_FLOWERS;
-    public static final ModConfigSpec.BooleanValue CULL_OTHER_PLANTS;
-    public static final ModConfigSpec.IntValue GRASS_CULL_DISTANCE;
-    public static final ModConfigSpec.IntValue FLOWER_CULL_DISTANCE;
-    public static final ModConfigSpec.IntValue OTHER_PLANT_CULL_DISTANCE;
-    public static final ModConfigSpec.BooleanValue DEBUG_MODE;
+    public static final ForgeConfigSpec SPEC;
+    public static final ForgeConfigSpec.BooleanValue ENABLED;
+    public static final ForgeConfigSpec.EnumValue<CullingShape> CULLING_SHAPE;
+    public static final ForgeConfigSpec.BooleanValue CULL_GRASS;
+    public static final ForgeConfigSpec.BooleanValue CULL_FLOWERS;
+    public static final ForgeConfigSpec.BooleanValue CULL_OTHER_PLANTS;
+    public static final ForgeConfigSpec.IntValue GRASS_CULL_DISTANCE;
+    public static final ForgeConfigSpec.IntValue FLOWER_CULL_DISTANCE;
+    public static final ForgeConfigSpec.IntValue OTHER_PLANT_CULL_DISTANCE;
+    public static final ForgeConfigSpec.BooleanValue DEBUG_MODE;
 
     static {
-        ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
+        ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
 
         builder.comment("Cullify general configuration options").push("general");
 
