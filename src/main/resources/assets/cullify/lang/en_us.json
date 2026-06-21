@@ -1,0 +1,23 @@
+{
+  "cullify.options.enabled": "Enable Vegetation Culling",
+  "cullify.options.enabled.tooltip": "Enables or disables culling of decorative vegetation blocks dynamically depending on distance.",
+  "cullify.options.cull_grass": "Cull Grass",
+  "cullify.options.cull_grass.tooltip": "Enable distance culling for grass, ferns, and short grass.",
+  "cullify.options.grass_distance": "Grass Cull Distance",
+  "cullify.options.grass_distance.tooltip": "The maximum rendering distance (in blocks) for decorative grass, tall grass, and ferns.",
+  "cullify.options.cull_flowers": "Cull Flowers",
+  "cullify.options.cull_flowers.tooltip": "Enable distance culling for flowers and double-height flowers.",
+  "cullify.options.flower_distance": "Flower Cull Distance",
+  "cullify.options.flower_distance.tooltip": "The maximum rendering distance (in blocks) for flowers, double-height flowers, and flower pots.",
+  "cullify.options.cull_other_plants": "Cull Other/Algae",
+  "cullify.options.cull_other_plants.tooltip": "Enable distance culling for marine plants, dead bushes, and other general plants.",
+  "cullify.options.other_distance": "Other Plants Cull Distance",
+  "cullify.options.other_distance.tooltip": "The maximum rendering distance (in blocks) for other decorative plants (dead bushes, pink petals, etc.).",
+  "cullify.options.debug_mode": "Debug Mode",
+  "cullify.options.debug_mode.tooltip": "Shows the number of culled vegetation blocks per second in the action bar (above the hotbar).",
+  "cullify.options.blocks": "%s blocks",
+  "cullify.menu.title": "Cullify Options",
+  "key.cullify.config": "Open Cullify Menu",
+  "key.categories.cullify": "Cullify"
+}
+

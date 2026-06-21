@@ -1,0 +1,45 @@
+package com.fluxsyum.cullify.mixin;
+
+import com.fluxsyum.cullify.CullifyConfig;
+import com.fluxsyum.cullify.CullifyMod;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.block.state.BlockState;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+/**
+ * Prevents the block selection outline (hitbox wireframe) from rendering
+ * on vegetation blocks that have been visually culled by Cullify.
+ *
+ * Without this fix, players would see a floating wireframe outline when
+ * looking at an invisible (culled) grass or flower block, which breaks
+ * visual consistency.
+ */
+@Mixin(LevelRenderer.class)
+public class MixinLevelRenderer {
+
+    @Inject(method = "renderHitOutline",
+            at = @At("HEAD"),
+            cancellable = true)
+    private void cullify$onRenderHitOutline(
+            PoseStack poseStack,
+            VertexConsumer vertexConsumer,
+            Entity entity,
+            double cameraX, double cameraY, double cameraZ,
+            BlockPos blockPos,
+            BlockState blockState,
+            CallbackInfo ci) {
+
+        if (CullifyConfig.ENABLED.get() && CullifyMod.hasPlayer) {
+            if (CullifyMod.shouldCullNoCount(blockState, blockPos)) {
+                ci.cancel();
+            }
+        }
+    }
+}
