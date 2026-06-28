@@ -28,8 +28,7 @@ public class CullifyMixinConfigPlugin implements IMixinConfigPlugin {
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
         boolean hasSodium = false;
         try {
-            net.neoforged.fml.loading.LoadingModList list = net.neoforged.fml.loading.LoadingModList.get();
-            if (list != null && list.getModFileById("sodium") != null) {
+            if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("sodium")) {
                 hasSodium = true;
             }
         } catch (Throwable ignored) {

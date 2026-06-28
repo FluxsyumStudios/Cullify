@@ -1,17 +1,19 @@
 package com.fluxsyum.cullify;
 
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
+import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
+import com.mojang.brigadier.CommandDispatcher;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,8 +22,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-@EventBusSubscriber(modid = CullifyMod.MOD_ID, value = Dist.CLIENT)
 public class ClientEventHandler {
+
+    public static KeyMapping configKeyMapping;
+    public static final ResourceLocation LOGO_RL = ResourceLocation.fromNamespaceAndPath(CullifyMod.MOD_ID, "textures/gui/logo.png");
 
     /**
      * Single-thread background executor for section-state classification.
@@ -72,8 +76,25 @@ public class ClientEventHandler {
         public int lastSeenTick;
     }
 
-    @SubscribeEvent
-    public static void onClientTick(ClientTickEvent.Post event) {
+    public static void registerClientEvents() {
+        ClientTickEvents.END_CLIENT_TICK.register(client -> onClientTick());
+
+        configKeyMapping = KeyBindingHelper.registerKeyBinding(new KeyMapping(
+            "key.cullify.config",
+            com.mojang.blaze3d.platform.InputConstants.KEY_K,
+            "key.categories.cullify"
+        ));
+
+        net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
+            registerCommands(dispatcher);
+        });
+
+        HudRenderCallback.EVENT.register((graphics, deltaTracker) -> {
+            renderDebugHud(graphics);
+        });
+    }
+
+    public static void onClientTick() {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         ClientLevel level = mc.level;
@@ -86,8 +107,7 @@ public class ClientEventHandler {
         }
 
         // Open config menu on key mapping press
-        if (com.fluxsyum.cullify.client.ClientModBusSubscriber.configKeyMapping != null &&
-            com.fluxsyum.cullify.client.ClientModBusSubscriber.configKeyMapping.consumeClick()) {
+        if (configKeyMapping != null && configKeyMapping.consumeClick()) {
             mc.setScreen(new com.fluxsyum.cullify.client.CullifyConfigScreen(null));
         }
 
@@ -152,7 +172,7 @@ public class ClientEventHandler {
             lastOtherDist    = otherDist;
             lastCullingShape = cullingShape;
             sectionStates.clear();
-            CullifyConfig.SPEC.save();
+            CullifyConfig.save();
             CullifyMod.updateConfigCache();
             CullifyMod.incrementConfigVersion();
             CullifyMod.voxelGridDirty = true;
@@ -213,20 +233,19 @@ public class ClientEventHandler {
         player.sendSystemMessage(Component.literal(message));
     }
 
-    @SubscribeEvent
-    public static void onRegisterCommands(RegisterClientCommandsEvent event) {
-        event.getDispatcher().register(
-            Commands.literal("cullify")
-                .then(Commands.literal("menu").executes(ctx -> {
+    public static void registerCommands(CommandDispatcher<FabricClientCommandSource> dispatcher) {
+        dispatcher.register(
+            ClientCommandManager.literal("cullify")
+                .then(ClientCommandManager.literal("menu").executes(ctx -> {
                     Minecraft.getInstance().execute(() -> {
                         Minecraft.getInstance().setScreen(new com.fluxsyum.cullify.client.CullifyConfigScreen(null));
                     });
                     return 1;
                 }))
-                .then(Commands.literal("debug").executes(ctx -> {
+                .then(ClientCommandManager.literal("debug").executes(ctx -> {
                     boolean newState = !CullifyConfig.DEBUG_MODE.get();
                     CullifyConfig.DEBUG_MODE.set(newState);
-                    CullifyConfig.SPEC.save();
+                    CullifyConfig.save();
                     CullifyDebugManager.syncFromConfig();
                     Minecraft mc = Minecraft.getInstance();
                     LocalPlayer player = mc.player;
@@ -235,7 +254,7 @@ public class ClientEventHandler {
                     }
                     return 1;
                 }))
-                .then(Commands.literal("reload").executes(ctx -> {
+                .then(ClientCommandManager.literal("reload").executes(ctx -> {
                     sectionStates.clear();
                     CullifyMod.updateConfigCache();
                     CullifyMod.incrementConfigVersion();
@@ -248,7 +267,7 @@ public class ClientEventHandler {
                     }
                     return 1;
                 }))
-                .then(Commands.literal("stats").executes(ctx -> {
+                .then(ClientCommandManager.literal("stats").executes(ctx -> {
                     Minecraft mc = Minecraft.getInstance();
                     LocalPlayer player = mc.player;
                     if (player != null) {
@@ -275,13 +294,13 @@ public class ClientEventHandler {
                     }
                     return 1;
                 }))
-                .then(Commands.literal("verbose").executes(ctx -> {
+                .then(ClientCommandManager.literal("verbose").executes(ctx -> {
                     if (CullifyDebugManager.debugLevel == CullifyDebugManager.DebugLevel.VERBOSE) {
                         CullifyDebugManager.debugLevel = CullifyDebugManager.DebugLevel.BASIC;
                     } else {
                         CullifyDebugManager.debugLevel = CullifyDebugManager.DebugLevel.VERBOSE;
                         CullifyConfig.DEBUG_MODE.set(true);
-                        CullifyConfig.SPEC.save();
+                        CullifyConfig.save();
                     }
                     Minecraft mc = Minecraft.getInstance();
                     LocalPlayer player = mc.player;
@@ -291,6 +310,64 @@ public class ClientEventHandler {
                     return 1;
                 }))
         );
+    }
+
+    public static void renderDebugHud(net.minecraft.client.gui.GuiGraphics graphics) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.options.hideGui || mc.gameMode == null) {
+            return;
+        }
+
+        if (!CullifyConfig.DEBUG_MODE.get()) {
+            return;
+        }
+
+        int x = 10;
+        int y = 10;
+        int w = 185;
+        int h = 125;
+
+        // Render background card
+        graphics.fill(x, y, x + w, y + h, 0xBB1E1E1E);
+        
+        // Border outline
+        graphics.fill(x, y, x + w, y + 1, 0x44FFFFFF);
+        graphics.fill(x, y + h - 1, x + w, y + h, 0x44FFFFFF);
+        graphics.fill(x, y, x + 1, y + h, 0x44FFFFFF);
+        graphics.fill(x + w - 1, y, x + w, y + h, 0x44FFFFFF);
+
+        // Mod logo
+        graphics.blit(LOGO_RL, x + 8, y + 8, 0.0f, 0.0f, 16, 16, 16, 16);
+
+        net.minecraft.client.gui.Font font = mc.font;
+        graphics.drawString(font, "§e§lCullify Debug", x + 30, y + 12, 0xFFFFFFFF, false);
+        graphics.fill(x + 8, y + 30, x + w - 8, y + 31, 0x33FFFFFF);
+
+        boolean enabled = CullifyConfig.ENABLED.get();
+        boolean sodium = CullifyDebugManager.sodiumDetected;
+        
+        String statusText = "Status: " + (enabled ? "§aEnabled" : "§cDisabled");
+        String pathText = "Renderer: " + (sodium ? "§bSodium" : "§7Vanilla");
+
+        String grassText = "Cull Grass: " + (CullifyConfig.CULL_GRASS.get() ? "§aON §7(" + CullifyConfig.GRASS_CULL_DISTANCE.get() + "m)" : "§cOFF");
+        String flowersText = "Cull Flowers: " + (CullifyConfig.CULL_FLOWERS.get() ? "§aON §7(" + CullifyConfig.FLOWER_CULL_DISTANCE.get() + "m)" : "§cOFF");
+        String otherText = "Cull Other: " + (CullifyConfig.CULL_OTHER_PLANTS.get() ? "§aON §7(" + CullifyConfig.OTHER_PLANT_CULL_DISTANCE.get() + "m)" : "§cOFF");
+
+        String hiddenText = "Hidden: §e" + CullifyDebugManager.lastCulledBlocks;
+        String waterText = "Waterlogged: §9" + CullifyDebugManager.lastWaterReplacements;
+        String drawsText = "Draws: §d" + (sodium ? "MDI" : CullifyDebugManager.lastDrawCalls);
+
+        graphics.drawString(font, statusText, x + 10, y + 37, 0xFFFFFFFF, false);
+        graphics.drawString(font, pathText, x + 10, y + 47, 0xFFFFFFFF, false);
+        graphics.drawString(font, grassText, x + 10, y + 57, 0xFFFFFFFF, false);
+        graphics.drawString(font, flowersText, x + 10, y + 67, 0xFFFFFFFF, false);
+        graphics.drawString(font, otherText, x + 10, y + 77, 0xFFFFFFFF, false);
+        
+        graphics.fill(x + 8, y + 89, x + w - 8, y + 90, 0x22FFFFFF);
+        
+        graphics.drawString(font, hiddenText, x + 10, y + 95, 0xFFFFFFFF, false);
+        graphics.drawString(font, waterText, x + 10, y + 105, 0xFFFFFFFF, false);
+        graphics.drawString(font, drawsText, x + 10, y + 115, 0xFFFFFFFF, false);
     }
 
     /**

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "cullify",
+  "version": "${version}",
+  "name": "Cullify",
+  "description": "An advanced, client-side culling system for decorative vegetation.",
+  "authors": [
+    "Fluxsyum"
+  ],
+  "license": "GPL-3.0-only",
+  "icon": "assets/cullify/logo.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.fluxsyum.cullify.CullifyMod"
+    ]
+  },
+  "mixins": [
+    "cullify.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "minecraft": "1.21.1",
+    "fabric-api": "*"
+  }
+}

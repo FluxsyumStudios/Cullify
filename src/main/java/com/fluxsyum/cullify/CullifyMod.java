@@ -1,6 +1,7 @@
 package com.fluxsyum.cullify;
 
 import com.fluxsyum.cullify.duck.CullifyBlockState;
+import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -10,13 +11,8 @@ import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.config.ModConfig;
-import net.neoforged.fml.event.config.ModConfigEvent;
 
-@Mod(CullifyMod.MOD_ID)
-public class CullifyMod {
+public class CullifyMod implements ClientModInitializer {
     public static final String MOD_ID = "cullify";
 
     // -----------------------------------------------------------------------
@@ -191,21 +187,14 @@ public class CullifyMod {
     // -----------------------------------------------------------------------
     // Mod lifecycle
     // -----------------------------------------------------------------------
-    public CullifyMod(ModContainer modContainer) {
-        modContainer.registerConfig(ModConfig.Type.CLIENT, CullifyConfig.SPEC);
-        modContainer.getEventBus().addListener(this::onClientSetup);
-        modContainer.getEventBus().addListener(this::onConfigReload);
+    @Override
+    public void onInitializeClient() {
+        CullifyConfig.load();
+        updateConfigCache();
+        CullifyDebugManager.syncFromConfig();
 
-        if (net.neoforged.fml.loading.FMLEnvironment.dist.isClient()) {
-            modContainer.registerExtensionPoint(
-                net.neoforged.neoforge.client.gui.IConfigScreenFactory.class,
-                (client, parent) -> new com.fluxsyum.cullify.client.CullifyConfigScreen(parent)
-            );
-            com.fluxsyum.cullify.client.ClientModBusSubscriber.register(modContainer.getEventBus());
-        }
-    }
+        ClientEventHandler.registerClientEvents();
 
-    private void onClientSetup(net.neoforged.fml.event.lifecycle.FMLClientSetupEvent event) {
         try {
             Class.forName("toni.sodiumoptionsapi.api.OptionGUIConstruction", false, this.getClass().getClassLoader());
             Class<?> compatClass = Class.forName("com.fluxsyum.cullify.compat.SodiumCompat");
@@ -221,15 +210,6 @@ public class CullifyMod {
         }
     }
 
-    private void onConfigReload(ModConfigEvent event) {
-        if (event.getConfig().getModId().equals(MOD_ID)) {
-            updateConfigCache();
-            voxelGridDirty = true;
-            CullifyDebugManager.syncFromConfig();
-            scheduleWorldReload();
-        }
-    }
-
     public static void scheduleWorldReload() {
         Minecraft mc = Minecraft.getInstance();
         if (mc != null) {
@@ -240,7 +220,6 @@ public class CullifyMod {
             });
         }
     }
-
     // -----------------------------------------------------------------------
     // Plant classification
     // -----------------------------------------------------------------------

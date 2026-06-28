@@ -168,7 +168,7 @@ public class SodiumCompat {
 
         @Override
         public void save() {
-            CullifyConfig.SPEC.save();
+            CullifyConfig.save();
         }
     }
 }

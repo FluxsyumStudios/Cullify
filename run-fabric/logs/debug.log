@@ -1,0 +1,25 @@
+[22:05:38] [main/INFO] (FabricLoader/GameProvider) Loading Minecraft 1.21.1 with Fabric Loader 0.19.3
+[22:05:38] [main/DEBUG] (FabricLoader/GamePatch) Found game constructor: net.minecraft.client.main.Main -> net.minecraft.client.Minecraft
+[22:05:38] [main/DEBUG] (FabricLoader/GamePatch) Patching game constructor <init>(Lnet/minecraft/client/main/GameConfig;)V
+[22:05:38] [main/DEBUG] (FabricLoader/GamePatch) Run directory field is thought to be net/minecraft/client/Minecraft/gameDirectory
+[22:05:38] [main/DEBUG] (FabricLoader/GamePatch) Applying brand name hook to net/minecraft/client/ClientBrandRetriever::getClientModName
+[22:05:38] [main/DEBUG] (FabricLoader/GamePatch) Applying brand name hook to net/minecraft/server/MinecraftServer::getServerModName
+[22:05:38] [main/DEBUG] (FabricLoader/GamePatch) Patched 3 classs
+[22:05:38] [main/DEBUG] (FabricLoader/Discovery) Mod discovery time: 26,5 ms
+[22:05:38] [main/WARN] (FabricLoader/Resolution) Mod resolution failed
+[22:05:38] [main/INFO] (FabricLoader/Resolution) Immediate reason: [HARD_DEP_NO_CANDIDATE sodiumoptionsapi 1.0.10 {depends reeses-sodium-options @ [*]}, ROOT_FORCELOAD_SINGLE sodiumoptionsapi 1.0.10]
+[22:05:38] [main/INFO] (FabricLoader/Resolution) Reason: [HARD_DEP sodiumoptionsapi 1.0.10 {depends reeses-sodium-options @ [*]}]
+[22:05:38] [main/INFO] (FabricLoader/Resolution) Fix: add [], remove [], replace [[sodiumoptionsapi 1.0.10] -> add:sodiumoptionsapi 1 ([(-∞,∞)])]
+[22:05:38] [main/ERROR] (FabricLoader) Incompatible mods found!
+net.fabricmc.loader.impl.FormattedException: Some of your mods are incompatible with the game or each other!
+A potential solution has been determined, this may resolve your problem:
+	 - Replace mod 'Sodium Options API' (sodiumoptionsapi) 1.0.10 with any version that is compatible with:
+		 - Other constraints that can''t be automatically determined
+More details:
+	 - Mod 'Sodium Options API' (sodiumoptionsapi) 1.0.10 requires any version of reeses-sodium-options, which is missing!
+	at net.fabricmc.loader.impl.FormattedException.ofLocalized(FormattedException.java:51) ~[fabric-loader-0.19.3.jar:?]
+	at net.fabricmc.loader.impl.FabricLoaderImpl.load(FabricLoaderImpl.java:202) ~[fabric-loader-0.19.3.jar:?]
+	at net.fabricmc.loader.impl.launch.knot.Knot.init(Knot.java:142) ~[fabric-loader-0.19.3.jar:?]
+	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:66) [fabric-loader-0.19.3.jar:?]
+	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23) [fabric-loader-0.19.3.jar:?]
+	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86) [dev-launch-injector-0.2.1+build.8.jar:?]

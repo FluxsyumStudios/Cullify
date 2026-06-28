@@ -137,7 +137,7 @@ public class CullifyConfigScreen extends Screen {
     }
 
     private void onConfigChange() {
-        CullifyConfig.SPEC.save();
+        CullifyConfig.save();
         CullifyMod.incrementConfigVersion();
         CullifyMod.scheduleWorldReload();
     }
