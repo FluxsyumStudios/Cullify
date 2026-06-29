@@ -118,6 +118,10 @@ public class BenchmarkManager {
     }
 
     private static void startPhase(State newState) {
+        if (state == State.RUNNING_WITHOUT) {
+            withoutFrameTimes.addAll(currentPhaseFrameTimes);
+        }
+
         state = newState;
         phaseStartTimeMillis = System.currentTimeMillis();
         currentPhaseFrameTimes.clear();
@@ -139,10 +143,6 @@ public class BenchmarkManager {
             sendMessage(Component.literal("§a[Cullify] Phase 1/2: RECORDING (WITHOUT Cullify)..."));
         }
         else if (newState == State.WARMUP_WITH) {
-            // Save results of first phase
-            withoutFrameTimes.addAll(currentPhaseFrameTimes);
-            currentPhaseFrameTimes.clear();
-
             sendMessage(Component.literal("§e[Cullify] Phase 2/2: Warmup (WITH Cullify) - Loading chunks..."));
             CullifyMod.benchmarkBypass = false;
             Minecraft.getInstance().execute(() -> {
