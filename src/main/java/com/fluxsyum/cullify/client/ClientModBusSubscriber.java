@@ -1,6 +1,5 @@
 package com.fluxsyum.cullify.client;
 
-import com.fluxsyum.cullify.CullifyConfig;
 import com.fluxsyum.cullify.CullifyDebugManager;
 import com.fluxsyum.cullify.CullifyMod;
 import net.minecraft.client.Minecraft;
@@ -40,7 +39,8 @@ public class ClientModBusSubscriber {
                     return;
                 }
 
-                if (!CullifyConfig.DEBUG_MODE.get()) {
+                // Use debugLevel flag instead of CullifyConfig.DEBUG_MODE.get() every frame
+                if (CullifyDebugManager.debugLevel == CullifyDebugManager.DebugLevel.OFF) {
                     return;
                 }
 
@@ -65,15 +65,16 @@ public class ClientModBusSubscriber {
                 graphics.drawString(font, "§e§lCullify Debug", x + 30, y + 12, 0xFFFFFFFF, false);
                 graphics.fill(x + 8, y + 30, x + w - 8, y + 31, 0x33FFFFFF);
 
-                boolean enabled = CullifyConfig.ENABLED.get();
+                // Read from cached fields — zero ModConfigSpec overhead per frame
+                boolean enabled = CullifyMod.cachedEnabled;
                 boolean sodium = CullifyDebugManager.sodiumDetected;
                 
                 String statusText = "Status: " + (enabled ? "§aEnabled" : "§cDisabled");
                 String pathText = "Renderer: " + (sodium ? "§bSodium" : "§7Vanilla");
 
-                String grassText = "Cull Grass: " + (CullifyConfig.CULL_GRASS.get() ? "§aON §7(" + CullifyConfig.GRASS_CULL_DISTANCE.get() + "m)" : "§cOFF");
-                String flowersText = "Cull Flowers: " + (CullifyConfig.CULL_FLOWERS.get() ? "§aON §7(" + CullifyConfig.FLOWER_CULL_DISTANCE.get() + "m)" : "§cOFF");
-                String otherText = "Cull Other: " + (CullifyConfig.CULL_OTHER_PLANTS.get() ? "§aON §7(" + CullifyConfig.OTHER_PLANT_CULL_DISTANCE.get() + "m)" : "§cOFF");
+                String grassText = "Cull Grass: " + (CullifyMod.cachedCullGrass ? "§aON §7(" + (int)CullifyMod.cachedGrassDist + "m)" : "§cOFF");
+                String flowersText = "Cull Flowers: " + (CullifyMod.cachedCullFlowers ? "§aON §7(" + (int)CullifyMod.cachedFlowerDist + "m)" : "§cOFF");
+                String otherText = "Cull Other: " + (CullifyMod.cachedCullOther ? "§aON §7(" + (int)CullifyMod.cachedOtherDist + "m)" : "§cOFF");
 
                 String hiddenText = "Hidden: §e" + CullifyDebugManager.lastCulledBlocks;
                 String waterText = "Waterlogged: §9" + CullifyDebugManager.lastWaterReplacements;

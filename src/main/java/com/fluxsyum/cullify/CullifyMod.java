@@ -14,18 +14,24 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.event.config.ModConfigEvent;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Mod(CullifyMod.MOD_ID)
 public class CullifyMod {
     public static final String MOD_ID = "cullify";
 
     // -----------------------------------------------------------------------
-    // Config version — incremented when settings change to invalidate caches
+    // Config version — incremented when settings change to invalidate caches.
+    // Uses AtomicInteger so increment is thread-safe across render/background
+    // threads without locks.
     // -----------------------------------------------------------------------
-    public static volatile int configVersion = 0;
+    private static final AtomicInteger configVersionAtomic = new AtomicInteger(0);
+
+    /** Read by chunk-builder threads — returns the current version number. */
+    public static int configVersion = 0;
 
     public static void incrementConfigVersion() {
-        configVersion++;
+        configVersion = configVersionAtomic.incrementAndGet();
     }
 
     // -----------------------------------------------------------------------
@@ -52,12 +58,14 @@ public class CullifyMod {
     /** LOD density threshold: 0 = cull all, 100 = cull nothing at near-border (disabled) */
     public static volatile int     cachedLodDensity    = 100;
 
+    public static volatile boolean benchmarkBypass = false;
+
     /**
      * Refresh all cached config values. Called whenever a config change is detected.
      * This must only be called from the main client thread.
      */
     public static void updateConfigCache() {
-        cachedEnabled     = CullifyConfig.ENABLED.get();
+        cachedEnabled     = CullifyConfig.ENABLED.get() && !benchmarkBypass;
         cachedCullGrass   = CullifyConfig.CULL_GRASS.get();
         cachedCullFlowers = CullifyConfig.CULL_FLOWERS.get();
         cachedCullOther   = CullifyConfig.CULL_OTHER_PLANTS.get();
@@ -106,39 +114,48 @@ public class CullifyMod {
      * and we call {@link #isInShape} which inlines a simple conditional chain.</p>
      */
     public static void rebuildVoxelGrid(double px, double py, double pz) {
-        int ox = (int) px - GRID_HALF;
-        int oy = (int) py - GRID_HALF;
-        int oz = (int) pz - GRID_HALF;
-        gridOriginX = ox;
-        gridOriginY = oy;
-        gridOriginZ = oz;
+        // Capture a stable local snapshot of all config values before the loop.
+        // This avoids reading volatile fields 2M+ times inside the hot loop and
+        // prevents torn reads if the main thread updates them mid-rebuild.
+        final double grassLimit  = cachedCullGrass   ? cachedGrassDist  : -1;
+        final double flowerLimit = cachedCullFlowers  ? cachedFlowerDist : -1;
+        final double otherLimit  = cachedCullOther    ? cachedOtherDist  : -1;
+        final CullifyConfig.CullingShape shape = cachedShape;
 
-        double grassLimit  = cachedCullGrass   ? cachedGrassDist  : -1;
-        double flowerLimit = cachedCullFlowers  ? cachedFlowerDist : -1;
-        double otherLimit  = cachedCullOther    ? cachedOtherDist  : -1;
-        CullifyConfig.CullingShape shape = cachedShape;
+        final int ox = (int) px - GRID_HALF;
+        final int oy = (int) py - GRID_HALF;
+        final int oz = (int) pz - GRID_HALF;
+
+        // Build into a local buffer first to avoid partial grid reads from
+        // other threads while the rebuild is still in progress.
+        final boolean[] localGrid = new boolean[GRID_VOLUME];
 
         for (int iy = 0; iy < GRID_SIZE; iy++) {
-            double dy = (oy + iy + 0.5) - py;
-            int baseY = iy * GRID_AREA;
+            final double dy = (oy + iy + 0.5) - py;
+            final int baseY = iy * GRID_AREA;
             for (int iz = 0; iz < GRID_SIZE; iz++) {
-                double dz = (oz + iz + 0.5) - pz;
-                int baseYZ = baseY + iz * GRID_SIZE;
+                final double dz = (oz + iz + 0.5) - pz;
+                final int baseYZ = baseY + iz * GRID_SIZE;
                 for (int ix = 0; ix < GRID_SIZE; ix++) {
-                    double dx = (ox + ix + 0.5) - px;
+                    final double dx = (ox + ix + 0.5) - px;
                     // A cell is "kept" (visible) if ANY plant type would keep it.
                     // This is a conservative union — the exact plant type is still
                     // checked during getBlockState, but FULLY_CULLED sections
                     // can be detected quickly in MixinLevelSlice.
-                    boolean kept =
+                    localGrid[baseYZ + ix] =
                         (grassLimit  >= 0 && isInShape(dx, dy, dz, grassLimit,  shape)) ||
                         (flowerLimit >= 0 && isInShape(dx, dy, dz, flowerLimit, shape)) ||
                         (otherLimit  >= 0 && isInShape(dx, dy, dz, otherLimit,  shape));
-                    voxelGrid[baseYZ + ix] = kept;
                 }
             }
         }
 
+        // Publish results atomically: update origin then copy buffer, then clear dirty flag.
+        // Other threads read voxelGridDirty first, so publishing the flag last is safe.
+        gridOriginX = ox;
+        gridOriginY = oy;
+        gridOriginZ = oz;
+        System.arraycopy(localGrid, 0, voxelGrid, 0, GRID_VOLUME);
         voxelGridDirty = false;
     }
 

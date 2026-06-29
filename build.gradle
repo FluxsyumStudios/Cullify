@@ -118,11 +118,17 @@ configurations {
 }
 
 dependencies {
-    compileOnly files("run/mods/sodium-neoforge-0.6.13+mc1.21.1.jar")
-    compileOnly files("run/mods/sodiumoptionsapi-neoforge-1.0.10-1.21.1.jar")
-    compileOnly files("run/mods/vanillin-neoforge-1.21.1-1.1.3.jar")
+    // Sodium and optional compat libs — version-agnostic glob so the build
+    // doesn't break when mods update their jar filenames.
+    compileOnly fileTree(dir: 'libs', includes: ['*.jar'])
+    compileOnly fileTree(dir: 'run/mods', includes: ['sodium-neoforge-*.jar'])
+    compileOnly fileTree(dir: 'run/mods', includes: ['sodiumoptionsapi-*.jar'])
+    compileOnly fileTree(dir: 'run/mods', includes: ['reeses-sodium-options-*.jar'])
+    compileOnly fileTree(dir: 'run/mods', includes: ['vanillin-neoforge-*.jar'])
     compileOnly "net.fabricmc.fabric-api:fabric-api:0.102.0+1.21.1"
 }
+
+
 
 // This block of code expands all declared replace properties in the specified resource targets.
 // A missing property will result in an error. Properties are expanded using ${} Groovy notation.

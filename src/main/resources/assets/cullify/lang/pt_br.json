@@ -18,7 +18,18 @@
   "cullify.options.blocks": "%s blocos",
   "cullify.options.culling_shape": "Formato de Culling",
   "cullify.options.culling_shape.tooltip": "O formato geométrico do limite de culling ao redor do jogador.",
+  "cullify.options.culling_shape.sphere": "Esfera",
+  "cullify.options.culling_shape.cylinder": "Cilindro",
+  "cullify.options.culling_shape.box": "Caixa",
+  "cullify.options.culling_shape.triangle": "Triângulo",
+  "cullify.options.culling_shape.hexagon": "Hexágono",
+  "cullify.options.culling_shape.star": "Estrela",
+  "cullify.options.culling_shape.square": "Quadrado",
+  "cullify.options.culling_shape.circle": "Círculo",
+  "cullify.options.page": "Culling de Vegetação",
   "cullify.menu.title": "Opções do Cullify",
   "key.cullify.config": "Abrir Menu do Cullify",
-  "key.categories.cullify": "Cullify"
+  "key.categories.cullify": "Cullify",
+  "cullify.benchmark.click_to_open": "Clique para abrir o relatório de benchmark",
+  "cullify.benchmark.completed": "[Cullify] Benchmark concluído! Salvo em: %s"
 }

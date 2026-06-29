@@ -1,5 +1,6 @@
 package com.fluxsyum.cullify.client;
 
+import com.fluxsyum.cullify.ClientEventHandler;
 import com.fluxsyum.cullify.CullifyConfig;
 import com.fluxsyum.cullify.CullifyMod;
 import net.minecraft.client.gui.GuiGraphics;
@@ -137,9 +138,14 @@ public class CullifyConfigScreen extends Screen {
     }
 
     private void onConfigChange() {
-        CullifyConfig.SPEC.save();
+        // Update the in-memory cache first, so background threads immediately
+        // see consistent values when the config version is incremented.
+        CullifyMod.updateConfigCache();
         CullifyMod.incrementConfigVersion();
+        CullifyMod.voxelGridDirty = true;
         CullifyMod.scheduleWorldReload();
+        // Save asynchronously — never block the render thread with disk I/O.
+        ClientEventHandler.scheduleDebouncedSave();
     }
 
     private int cycleDistance(int current) {

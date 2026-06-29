@@ -38,8 +38,8 @@ public class MixinLevelSlice {
      */
     @Unique private final boolean[] cullify$hasVegetation = new boolean[27];
 
-    @Unique private boolean cullify$cacheValid = false;
-    @Unique private int cullify$lastConfigVersion = -1;
+    @Unique private volatile boolean cullify$cacheValid = false;
+    @Unique private volatile int cullify$lastConfigVersion = -1;
 
     // Rebuild cache when a new section is copied into LevelSlice
     @Inject(method = "copyData", at = @At("TAIL"), remap = false)
@@ -78,29 +78,42 @@ public class MixinLevelSlice {
 
         // Mark this section as containing vegetation (lazy population of hasVegetation)
         cullify$markVegetation(lx, ly, lz);
+        
+        boolean benchmark = com.fluxsyum.cullify.benchmark.BenchmarkManager.isRunning();
+        if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.blocksTested.increment();
 
-        if (!cullify$cacheValid || cullify$lastConfigVersion != CullifyMod.configVersion) {
-            cullify$lastConfigVersion = CullifyMod.configVersion;
-            cullify$rebuildCache();
-        }
+        // If the section cache is invalid (e.g. configVersion changed mid-section),
+        // skip the cached fast-path and fall through to per-block shouldCull().
+        // The cache is rebuilt only in copyData (once per section), never here.
+        if (cullify$cacheValid && cullify$lastConfigVersion == CullifyMod.configVersion
+                && lx >= 0 && lx <= 2 && ly >= 0 && ly <= 2 && lz >= 0 && lz <= 2) {
 
-        if (lx < 0 || lx > 2 || ly < 0 || ly > 2 || lz < 0 || lz > 2) {
-            if (CullifyMod.shouldCull(state, x, y, z)) {
+            int sectionIdx = ly * 9 + lz * 3 + lx;
+            byte cacheState = cullify$getCacheState(type, sectionIdx);
+
+            if (cacheState == FULLY_CULLED) {
+                CullifyDebugManager.culledBlocks.increment();
+                if (benchmark) {
+                    com.fluxsyum.cullify.benchmark.BenchmarkManager.blocksCulled.increment();
+                    com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheHits.increment();
+                }
                 cir.setReturnValue(CullifyMod.getCulledState(state));
+                return;
+            } else if (cacheState == FULLY_KEPT) {
+                if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheHits.increment();
+                // Definitely inside radius — no further check needed.
+                return;
             }
-            return;
+            // STRADDLING: fall through to per-block check below
+            if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheMisses.increment();
+        } else {
+            if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheMisses.increment();
         }
 
-        int sectionIdx = ly * 9 + lz * 3 + lx;
-        byte cacheState = cullify$getCacheState(type, sectionIdx);
-
-        if (cacheState == FULLY_CULLED) {
-            CullifyDebugManager.culledBlocks.increment();
+        // Out-of-bounds section index or cache not ready: per-block fallback
+        if (CullifyMod.shouldCull(state, x, y, z)) {
+            if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.blocksCulled.increment();
             cir.setReturnValue(CullifyMod.getCulledState(state));
-        } else if (cacheState == STRADDLING) {
-            if (CullifyMod.shouldCull(state, x, y, z)) {
-                cir.setReturnValue(CullifyMod.getCulledState(state));
-            }
         }
     }
 
@@ -129,61 +142,77 @@ public class MixinLevelSlice {
         // Mark this section as containing vegetation (lazy population of hasVegetation)
         cullify$markVegetation(lx, ly, lz);
 
-        if (!cullify$cacheValid || cullify$lastConfigVersion != CullifyMod.configVersion) {
-            cullify$lastConfigVersion = CullifyMod.configVersion;
-            cullify$rebuildCache();
-        }
+        boolean benchmark = com.fluxsyum.cullify.benchmark.BenchmarkManager.isRunning();
+        if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.blocksTested.increment();
 
-        if (lx < 0 || lx > 2 || ly < 0 || ly > 2 || lz < 0 || lz > 2) {
-            if (CullifyMod.shouldCull(state, x, y, z)) {
+        // Same cache policy as the coordinate-based hook: never rebuild here.
+        if (cullify$cacheValid && cullify$lastConfigVersion == CullifyMod.configVersion
+                && lx >= 0 && lx <= 2 && ly >= 0 && ly <= 2 && lz >= 0 && lz <= 2) {
+
+            int sectionIdx = ly * 9 + lz * 3 + lx;
+            byte cacheState = cullify$getCacheState(type, sectionIdx);
+
+            if (cacheState == FULLY_CULLED) {
+                CullifyDebugManager.culledBlocks.increment();
+                if (benchmark) {
+                    com.fluxsyum.cullify.benchmark.BenchmarkManager.blocksCulled.increment();
+                    com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheHits.increment();
+                }
                 cir.setReturnValue(CullifyMod.getCulledState(state));
+                return;
+            } else if (cacheState == FULLY_KEPT) {
+                if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheHits.increment();
+                // Definitely inside radius — no further check needed.
+                return;
             }
-            return;
+            // STRADDLING: fall through to per-block check below
+            if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheMisses.increment();
+        } else {
+            if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheMisses.increment();
         }
 
-        int sectionIdx = ly * 9 + lz * 3 + lx;
-        byte cacheState = cullify$getCacheState(type, sectionIdx);
-
-        if (cacheState == FULLY_CULLED) {
-            CullifyDebugManager.culledBlocks.increment();
+        // Out-of-bounds or cache not ready: per-block fallback
+        if (CullifyMod.shouldCull(state, x, y, z)) {
+            if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.blocksCulled.increment();
             cir.setReturnValue(CullifyMod.getCulledState(state));
-        } else if (cacheState == STRADDLING) {
-            if (CullifyMod.shouldCull(state, x, y, z)) {
-                cir.setReturnValue(CullifyMod.getCulledState(state));
-            }
         }
     }
 
-    // Rebuild the AABB distance cache for the 27 sections
+    // Rebuild the AABB distance cache for the 27 sections.
+    // Called ONLY from copyData (once per section) — never from getBlockState.
     @Unique
     private void cullify$rebuildCache() {
-        double px = CullifyMod.playerX;
-        double py = CullifyMod.playerY;
-        double pz = CullifyMod.playerZ;
+        boolean benchmark = com.fluxsyum.cullify.benchmark.BenchmarkManager.isRunning();
+        long start = benchmark ? System.nanoTime() : 0;
+        
+        // Capture stable local snapshots of volatile player position and config.
+        final double px = CullifyMod.playerX;
+        final double py = CullifyMod.playerY;
+        final double pz = CullifyMod.playerZ;
 
-        double grassDist  = CullifyMod.getCullDistance(CullifyMod.PlantType.GRASS);
-        double flowerDist = CullifyMod.getCullDistance(CullifyMod.PlantType.FLOWER);
-        double otherDist  = CullifyMod.getCullDistance(CullifyMod.PlantType.OTHER);
+        final double grassDist  = CullifyMod.getCullDistance(CullifyMod.PlantType.GRASS);
+        final double flowerDist = CullifyMod.getCullDistance(CullifyMod.PlantType.FLOWER);
+        final double otherDist  = CullifyMod.getCullDistance(CullifyMod.PlantType.OTHER);
 
         for (int ly = 0; ly < 3; ly++) {
-            double minY = originBlockY + (ly << 4);
-            double maxY = minY + 16.0;
-            double nearDy = py < minY ? minY - py : (py > maxY ? py - maxY : 0.0);
-            double farDy  = py < minY + 8.0 ? maxY - py : py - minY;
+            final double minY = originBlockY + (ly << 4);
+            final double maxY = minY + 16.0;
+            final double nearDy = py < minY ? minY - py : (py > maxY ? py - maxY : 0.0);
+            final double farDy  = py < minY + 8.0 ? maxY - py : py - minY;
 
             for (int lz = 0; lz < 3; lz++) {
-                double minZ = originBlockZ + (lz << 4);
-                double maxZ = minZ + 16.0;
-                double nearDz = pz < minZ ? minZ - pz : (pz > maxZ ? pz - maxZ : 0.0);
-                double farDz  = pz < minZ + 8.0 ? maxZ - pz : pz - minZ;
+                final double minZ = originBlockZ + (lz << 4);
+                final double maxZ = minZ + 16.0;
+                final double nearDz = pz < minZ ? minZ - pz : (pz > maxZ ? pz - maxZ : 0.0);
+                final double farDz  = pz < minZ + 8.0 ? maxZ - pz : pz - minZ;
 
                 for (int lx = 0; lx < 3; lx++) {
-                    double minX = originBlockX + (lx << 4);
-                    double maxX = minX + 16.0;
-                    double nearDx = px < minX ? minX - px : (px > maxX ? px - maxX : 0.0);
-                    double farDx  = px < minX + 8.0 ? maxX - px : px - minX;
+                    final double minX = originBlockX + (lx << 4);
+                    final double maxX = minX + 16.0;
+                    final double nearDx = px < minX ? minX - px : (px > maxX ? px - maxX : 0.0);
+                    final double farDx  = px < minX + 8.0 ? maxX - px : px - minX;
 
-                    int sectionIdx = ly * 9 + lz * 3 + lx;
+                    final int sectionIdx = ly * 9 + lz * 3 + lx;
 
                     cullify$grassCache[sectionIdx]  = cullify$classify(nearDx, farDx, nearDy, farDy, nearDz, farDz, grassDist);
                     cullify$flowerCache[sectionIdx] = cullify$classify(nearDx, farDx, nearDy, farDy, nearDz, farDz, flowerDist);
@@ -192,7 +221,14 @@ public class MixinLevelSlice {
             }
         }
 
+        // Update configVersion snapshot and mark cache valid atomically
+        cullify$lastConfigVersion = CullifyMod.configVersion;
         cullify$cacheValid = true;
+        
+        if (benchmark) {
+            com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheRebuildTimeNanos.add(System.nanoTime() - start);
+            com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheRebuilds.increment();
+        }
     }
 
     // Classify a section's culling status based on distances and threshold

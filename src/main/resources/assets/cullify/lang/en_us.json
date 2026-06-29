@@ -18,8 +18,19 @@
   "cullify.options.blocks": "%s blocks",
   "cullify.options.culling_shape": "Culling Shape",
   "cullify.options.culling_shape.tooltip": "The geometric shape of the culling boundary around the player.",
+  "cullify.options.culling_shape.sphere": "Sphere",
+  "cullify.options.culling_shape.cylinder": "Cylinder",
+  "cullify.options.culling_shape.box": "Box",
+  "cullify.options.culling_shape.triangle": "Triangle",
+  "cullify.options.culling_shape.hexagon": "Hexagon",
+  "cullify.options.culling_shape.star": "Star",
+  "cullify.options.culling_shape.square": "Square",
+  "cullify.options.culling_shape.circle": "Circle",
+  "cullify.options.page": "Vegetation Culling",
   "cullify.menu.title": "Cullify Options",
   "key.cullify.config": "Open Cullify Menu",
-  "key.categories.cullify": "Cullify"
+  "key.categories.cullify": "Cullify",
+  "cullify.benchmark.click_to_open": "Click to open the benchmark report",
+  "cullify.benchmark.completed": "[Cullify] Benchmark completed! Saved to: %s"
 }
 

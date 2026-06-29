@@ -18,10 +18,39 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 @EventBusSubscriber(modid = CullifyMod.MOD_ID, value = Dist.CLIENT)
 public class ClientEventHandler {
+
+    /**
+     * Dedicated scheduler for async config saves with debounce.
+     * Config saves (disk I/O) are NEVER done on the main/render thread.
+     */
+    private static final ScheduledExecutorService ASYNC_SAVER = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "Cullify-Async-Saver");
+        t.setDaemon(true);
+        t.setPriority(Thread.MIN_PRIORITY);
+        return t;
+    });
+
+    /** Reference to the pending save future — cancelled and replaced on each change. */
+    private static final AtomicReference<ScheduledFuture<?>> pendingSave = new AtomicReference<>(null);
+
+    public static void scheduleDebouncedSave() {
+        ScheduledFuture<?> existing = pendingSave.getAndSet(null);
+        if (existing != null) {
+            existing.cancel(false);
+        }
+        ScheduledFuture<?> future = ASYNC_SAVER.schedule(() -> {
+            try { CullifyConfig.SPEC.save(); } catch (Throwable e) {}
+        }, 2, TimeUnit.SECONDS);
+        pendingSave.set(future);
+    }
 
     /**
      * Single-thread background executor for section-state classification.
@@ -70,6 +99,11 @@ public class ClientEventHandler {
         public double lastRebuildY;
         public double lastRebuildZ;
         public int lastSeenTick;
+    }
+
+    @SubscribeEvent
+    public static void onRenderFrame(net.neoforged.neoforge.client.event.RenderFrameEvent.Pre event) {
+        com.fluxsyum.cullify.benchmark.BenchmarkManager.recordFrame();
     }
 
     @SubscribeEvent
@@ -152,12 +186,15 @@ public class ClientEventHandler {
             lastOtherDist    = otherDist;
             lastCullingShape = cullingShape;
             sectionStates.clear();
-            CullifyConfig.SPEC.save();
+            scheduleDebouncedSave();
             CullifyMod.updateConfigCache();
             CullifyMod.incrementConfigVersion();
             CullifyMod.voxelGridDirty = true;
             CullifyMod.scheduleWorldReload();
         }
+
+        // Benchmark tick update
+        com.fluxsyum.cullify.benchmark.BenchmarkManager.checkTime();
 
         debugTickCounter++;
         if (debugTickCounter >= 20) {
@@ -226,7 +263,7 @@ public class ClientEventHandler {
                 .then(Commands.literal("debug").executes(ctx -> {
                     boolean newState = !CullifyConfig.DEBUG_MODE.get();
                     CullifyConfig.DEBUG_MODE.set(newState);
-                    CullifyConfig.SPEC.save();
+                    scheduleDebouncedSave();
                     CullifyDebugManager.syncFromConfig();
                     Minecraft mc = Minecraft.getInstance();
                     LocalPlayer player = mc.player;
@@ -281,7 +318,7 @@ public class ClientEventHandler {
                     } else {
                         CullifyDebugManager.debugLevel = CullifyDebugManager.DebugLevel.VERBOSE;
                         CullifyConfig.DEBUG_MODE.set(true);
-                        CullifyConfig.SPEC.save();
+                        scheduleDebouncedSave();
                     }
                     Minecraft mc = Minecraft.getInstance();
                     LocalPlayer player = mc.player;
@@ -290,6 +327,33 @@ public class ClientEventHandler {
                     }
                     return 1;
                 }))
+                .then(Commands.literal("benchmark")
+                    .then(Commands.literal("start")
+                        .then(Commands.argument("seconds", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1, 3600))
+                            .executes(context -> {
+                                int seconds = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(context, "seconds");
+                                if (com.fluxsyum.cullify.benchmark.BenchmarkManager.isRunning()) {
+                                    context.getSource().sendFailure(Component.literal("Benchmark is already running!"));
+                                    return 0;
+                                }
+                                com.fluxsyum.cullify.benchmark.BenchmarkManager.start(seconds);
+                                context.getSource().sendSuccess(() -> Component.literal("§aStarted Cullify benchmark for " + seconds + " seconds."), false);
+                                return 1;
+                            })
+                        )
+                    )
+                    .then(Commands.literal("stop")
+                        .executes(context -> {
+                            if (!com.fluxsyum.cullify.benchmark.BenchmarkManager.isRunning()) {
+                                context.getSource().sendFailure(Component.literal("No benchmark is currently running."));
+                                return 0;
+                            }
+                            com.fluxsyum.cullify.benchmark.BenchmarkManager.stop();
+                            context.getSource().sendSuccess(() -> Component.literal("§eBenchmark stopped manually."), false);
+                            return 1;
+                        })
+                    )
+                )
         );
     }
 
