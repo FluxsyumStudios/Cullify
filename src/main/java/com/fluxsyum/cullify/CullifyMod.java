@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Mod(CullifyMod.MOD_ID)
 public class CullifyMod {
     public static final String MOD_ID = "cullify";
+    public static String VERSION = "1.3.1";
 
     // -----------------------------------------------------------------------
     // Config version — incremented when settings change to invalidate caches.
@@ -209,6 +210,7 @@ public class CullifyMod {
     // Mod lifecycle
     // -----------------------------------------------------------------------
     public CullifyMod(ModContainer modContainer) {
+        VERSION = modContainer.getModInfo().getVersion().toString();
         modContainer.registerConfig(ModConfig.Type.CLIENT, CullifyConfig.SPEC);
         modContainer.getEventBus().addListener(this::onClientSetup);
         modContainer.getEventBus().addListener(this::onConfigReload);

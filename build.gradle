@@ -124,7 +124,6 @@ dependencies {
     compileOnly fileTree(dir: 'run/mods', includes: ['sodium-neoforge-*.jar'])
     compileOnly fileTree(dir: 'run/mods', includes: ['sodiumoptionsapi-*.jar'])
     compileOnly fileTree(dir: 'run/mods', includes: ['reeses-sodium-options-*.jar'])
-    compileOnly fileTree(dir: 'run/mods', includes: ['vanillin-neoforge-*.jar'])
     compileOnly "net.fabricmc.fabric-api:fabric-api:0.102.0+1.21.1"
 }
 

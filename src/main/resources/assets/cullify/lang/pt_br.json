@@ -31,5 +31,16 @@
   "key.cullify.config": "Abrir Menu do Cullify",
   "key.categories.cullify": "Cullify",
   "cullify.benchmark.click_to_open": "Clique para abrir o relatório de benchmark",
-  "cullify.benchmark.completed": "[Cullify] Benchmark concluído! Salvo em: %s"
+  "cullify.benchmark.completed": "[Cullify] Benchmark concluído! Salvo em: %s",
+  "cullify.menu.tab.general": "Geral",
+  "cullify.menu.tab.vegetation": "Vegetação",
+  "cullify.menu.lod_density": "Densidade do LOD",
+  "cullify.menu.lod_density.tooltip": "Reduz a densidade das plantas na metade externa do raio de culling para otimizar a renderização.",
+  "cullify.menu.version": "Versão %s",
+  "cullify.menu.tooltip.performance.impact": "Impacto na Performance: ",
+  "cullify.menu.tooltip.performance.high": "Alto",
+  "cullify.menu.tooltip.performance.medium": "Médio",
+  "cullify.menu.tooltip.performance.low": "Baixo",
+  "cullify.menu.tooltip.performance.none": "Nenhum",
+  "cullify.menu.distance": "Distância: %s blocos"
 }

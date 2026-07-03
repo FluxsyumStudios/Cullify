@@ -2,6 +2,21 @@
 
 All notable changes to **Cullify** are documented here.
 
+## [1.3.1+mc1.21.1] - 2026-07-03
+
+### 🎨 Custom Configuration UI Redesign
+* **🖥️ Custom Glassmorphic Dashboard**: Completely replaced the standard Minecraft config screen buttons with a premium, semi-transparent dark panel outlined by a neon green border, matching Cullify's branding.
+* **📂 Sidebar Tab Layout**: Reorganized configuration options into two distinct, accessible tabs:
+  - **General Settings**: Controls for global culling toggle, debug HUD, LOD density, and culling shape.
+  - **Vegetation Settings**: Fine-grained category controls for vegetation types.
+* **🔘 Interactive Switch Toggles**: Added custom-rendered sliders and color-coded text.
+* **🌀 Live 2D Wireframe Shape Previews**: Features an animated wireframe panel on the General tab that projects and rotates wireframes of active culling shapes.
+* **💬 Styled Tooltips**: Hovering options now displays a rich description box.
+* **🌐 Full Translation**: Fully localized with support for English and Portuguese.
+
+### 🐛 Bug Fixes & Compatibility
+* **🔧 Fixed Startup Crash**: Resolved a startup crash (`ClassNotFoundException`) that occurred when attempting to load Cullify without the Vanillin optimization mod installed.
+
 ---
 
 ## [1.2.0+mc1.21.1] - 2026-06-28
