@@ -11,7 +11,7 @@ import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 
 public class ClientModBusSubscriber {
 
-    private static final ResourceLocation LOGO_RL = ResourceLocation.fromNamespaceAndPath(CullifyMod.MOD_ID, "textures/gui/logo.png");
+    private static final ResourceLocation LOGO_RL = CullifyMod.LOGO;
     public static net.minecraft.client.KeyMapping configKeyMapping;
 
     // Registers mod event bus listeners manually to avoid deprecated EventBusSubscriber annotation

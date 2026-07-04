@@ -42,6 +42,13 @@
   "cullify.menu.tooltip.performance.medium": "Medium",
   "cullify.menu.tooltip.performance.low": "Low",
   "cullify.menu.tooltip.performance.none": "None",
-  "cullify.menu.distance": "Distance: %s blocks"
+  "cullify.menu.distance": "Distance: %s blocks",
+  "cullify.menu.option.enabled": "Culling",
+  "cullify.menu.option.debug": "Debug HUD",
+  "cullify.menu.option.lod": "LOD Density",
+  "cullify.menu.option.shape": "Culling Shape",
+  "cullify.menu.option.grass": "Cull Grass",
+  "cullify.menu.option.flowers": "Cull Flowers",
+  "cullify.menu.option.other": "Cull Other/Algae",
+  "cullify.menu.slider.distance": "Distance"
 }
-

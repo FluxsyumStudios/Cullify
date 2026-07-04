@@ -4,18 +4,25 @@ All notable changes to **Cullify** are documented here.
 
 ## [1.3.1+mc1.21.1] - 2026-07-03
 
-### 🎨 Custom Configuration UI Redesign
-* **🖥️ Custom Glassmorphic Dashboard**: Completely replaced the standard Minecraft config screen buttons with a premium, semi-transparent dark panel outlined by a neon green border, matching Cullify's branding.
-* **📂 Sidebar Tab Layout**: Reorganized configuration options into two distinct, accessible tabs:
-  - **General Settings**: Controls for global culling toggle, debug HUD, LOD density, and culling shape.
-  - **Vegetation Settings**: Fine-grained category controls for vegetation types.
-* **🔘 Interactive Switch Toggles**: Added custom-rendered sliders and color-coded text.
-* **🌀 Live 2D Wireframe Shape Previews**: Features an animated wireframe panel on the General tab that projects and rotates wireframes of active culling shapes.
-* **💬 Styled Tooltips**: Hovering options now displays a rich description box.
-* **🌐 Full Translation**: Fully localized with support for English and Portuguese.
+### ➕ Added / New Features
+* **🎛️ Draggable Sliders**: Replaced the old distance click-cards with smooth, draggable sliders in the config menu.
+* **💚 Sodium Slider Integration**: Added the "LOD Density" slider option natively inside the Sodium settings page.
+* **🎨 Custom Glassmorphic UI**: Redesigned the config menu screen with a premium dark theme, animated culling shape previews, glowing green neon borders, and rich tooltips.
+* **🌐 Better Translations**: Added full localization support for 13 languages.
 
-### 🐛 Bug Fixes & Compatibility
-* **🔧 Fixed Startup Crash**: Resolved a startup crash (`ClassNotFoundException`) that occurred when attempting to load Cullify without the Vanillin optimization mod installed.
+### 🐛 Bug Fixes
+* **🔧 Fixed Startup Crash**: Fixed a game crash on startup if Vanillin mod was not installed.
+* **⚡ Concurrency Protection**: Fixed rare background crashes when loading/unloading chunks.
+* **🔍 Voxel Grid Flickering Fix**: Fixed block rendering flickering issues when moving fast by using atomic swaps.
+* **📐 LOD Block Outline Fix**: Fixed block outline wireframes showing up on invisible plant spaces where blocks were culled.
+* **🧹 Cache Section Fix**: Fixed cached section states being deleted too early under background thread latency.
+* **🔄 Math.abs Random Bug**: Fixed a math overflow bug in the LOD generator causing uneven plant density distribution.
+
+### ⚡ Performance Optimizations
+* **📦 Memory Double-Buffering**: Reuses voxel grid memory arrays instead of allocating 2MB buffers repeatedly, saving RAM and avoiding GC micro-stutters.
+* **⚙️ Fast-Path Plant Check**: Replaced slow registries checks with quick direct Java class checks for 99% of plant lookups.
+* **🎮 UI Optimization**: Cached visual glow animation math so it runs once per frame instead of calculating per option card.
+* **⛓️ Debounced Reload**: Consecutive config changes now trigger exactly one world redraw instead of reloading the world multiple times.
 
 ---
 

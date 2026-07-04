@@ -23,7 +23,7 @@ public class SodiumCompat implements ConfigEntryPoint {
     public void registerConfigLate(ConfigBuilder builder) {
         // Use registerOwnModOptions() so Sodium reads our mod metadata automatically
         ModOptionsBuilder modOptions = builder.registerOwnModOptions();
-        modOptions.setNonTintedIcon(ResourceLocation.fromNamespaceAndPath("cullify", "textures/gui/logo.png"));
+        modOptions.setNonTintedIcon(CullifyMod.LOGO);
 
         OptionPageBuilder page = createCullifyPage(builder);
         modOptions.addPage(page);
@@ -68,6 +68,26 @@ public class SodiumCompat implements ConfigEntryPoint {
                             CullifyMod.scheduleWorldReload();
                         },
                         () -> CullifyConfig.CULLING_SHAPE.get()
+                )
+        );
+
+        // 3. LOD Density Slider
+        mainGroup.addOption(builder.createIntegerOption(ResourceLocation.fromNamespaceAndPath("cullify", "lod_density"))
+                .setName(Component.translatable("cullify.menu.option.lod"))
+                .setTooltip(Component.translatable("cullify.menu.lod_density.tooltip"))
+                .setRange(0, 100, 5)
+                .setValueFormatter(v -> v >= 100 ? Component.translatable("gui.none") : Component.literal(v + "%"))
+                .setDefaultValue(100)
+                .setStorageHandler(STORAGE_HANDLER)
+                .setBinding(
+                        v -> {
+                            CullifyConfig.LOD_DENSITY.set(v);
+                            CullifyMod.updateConfigCache();
+                            CullifyMod.incrementConfigVersion();
+                            CullifyMod.voxelGridDirty = true;
+                            CullifyMod.scheduleWorldReload();
+                        },
+                        () -> CullifyConfig.LOD_DENSITY.get()
                 )
         );
 

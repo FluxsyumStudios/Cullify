@@ -41,7 +41,9 @@ public class BenchmarkManager {
         phaseDurationMillis = seconds * 1000L;
         withoutFrameTimes.clear();
         withFrameTimes.clear();
-        currentPhaseFrameTimes.clear();
+        synchronized (currentPhaseFrameTimes) {
+            currentPhaseFrameTimes.clear();
+        }
         lastFrameTimeNanos = 0;
 
         sendMessage(Component.literal("§e[Cullify] Starting Comparison Benchmark..."));
@@ -112,19 +114,25 @@ public class BenchmarkManager {
         if (lastFrameTimeNanos > 0) {
             long diff = now - lastFrameTimeNanos;
             double frameTimeMs = diff / 1_000_000.0;
-            currentPhaseFrameTimes.add(frameTimeMs);
+            synchronized (currentPhaseFrameTimes) {
+                currentPhaseFrameTimes.add(frameTimeMs);
+            }
         }
         lastFrameTimeNanos = now;
     }
 
     private static void startPhase(State newState) {
         if (state == State.RUNNING_WITHOUT) {
-            withoutFrameTimes.addAll(currentPhaseFrameTimes);
+            synchronized (currentPhaseFrameTimes) {
+                withoutFrameTimes.addAll(currentPhaseFrameTimes);
+            }
         }
 
         state = newState;
         phaseStartTimeMillis = System.currentTimeMillis();
-        currentPhaseFrameTimes.clear();
+        synchronized (currentPhaseFrameTimes) {
+            currentPhaseFrameTimes.clear();
+        }
         lastFrameTimeNanos = 0;
 
         if (newState == State.WARMUP_WITHOUT) {
@@ -161,7 +169,9 @@ public class BenchmarkManager {
     }
 
     private static void stopBenchmark() {
-        withFrameTimes.addAll(currentPhaseFrameTimes);
+        synchronized (currentPhaseFrameTimes) {
+            withFrameTimes.addAll(currentPhaseFrameTimes);
+        }
         state = State.IDLE;
 
         BenchmarkReportWriter.saveComparisonReport(withoutFrameTimes, withFrameTimes);

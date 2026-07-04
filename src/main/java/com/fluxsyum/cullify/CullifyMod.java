@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class CullifyMod {
     public static final String MOD_ID = "cullify";
     public static String VERSION = "1.3.1";
+    public static final ResourceLocation LOGO = ResourceLocation.fromNamespaceAndPath(MOD_ID, "textures/gui/logo.png");
 
     // -----------------------------------------------------------------------
     // Config version — incremented when settings change to invalidate caches.
@@ -29,7 +30,7 @@ public class CullifyMod {
     private static final AtomicInteger configVersionAtomic = new AtomicInteger(0);
 
     /** Read by chunk-builder threads — returns the current version number. */
-    public static int configVersion = 0;
+    public static volatile int configVersion = 0;
 
     public static void incrementConfigVersion() {
         configVersion = configVersionAtomic.incrementAndGet();
@@ -74,6 +75,7 @@ public class CullifyMod {
         cachedFlowerDist  = CullifyConfig.FLOWER_CULL_DISTANCE.get();
         cachedOtherDist   = CullifyConfig.OTHER_PLANT_CULL_DISTANCE.get();
         cachedShape       = CullifyConfig.CULLING_SHAPE.get();
+        cachedLodDensity  = CullifyConfig.LOD_DENSITY.get();
     }
 
     // -----------------------------------------------------------------------
@@ -95,8 +97,12 @@ public class CullifyMod {
     private static final int GRID_AREA   = GRID_SIZE * GRID_SIZE;
     private static final int GRID_VOLUME = GRID_SIZE * GRID_SIZE * GRID_SIZE;
 
+    private static final boolean[] gridA = new boolean[GRID_VOLUME];
+    private static final boolean[] gridB = new boolean[GRID_VOLUME];
+    private static boolean useA = true;
+
     /** Grid cells: true = block is within the culling radius (KEPT), false = culled */
-    public static final boolean[] voxelGrid = new boolean[GRID_VOLUME];
+    public static volatile boolean[] voxelGrid = gridA;
 
     /** World-space origin of the voxel grid (block at local index 0,0,0) */
     public static volatile int gridOriginX = 0;
@@ -129,7 +135,8 @@ public class CullifyMod {
 
         // Build into a local buffer first to avoid partial grid reads from
         // other threads while the rebuild is still in progress.
-        final boolean[] localGrid = new boolean[GRID_VOLUME];
+        final boolean[] localGrid = useA ? gridB : gridA;
+        java.util.Arrays.fill(localGrid, false);
 
         for (int iy = 0; iy < GRID_SIZE; iy++) {
             final double dy = (oy + iy + 0.5) - py;
@@ -156,7 +163,8 @@ public class CullifyMod {
         gridOriginX = ox;
         gridOriginY = oy;
         gridOriginZ = oz;
-        System.arraycopy(localGrid, 0, voxelGrid, 0, GRID_VOLUME);
+        voxelGrid = localGrid;
+        useA = !useA;
         voxelGridDirty = false;
     }
 
@@ -202,7 +210,7 @@ public class CullifyMod {
         hash ^= (hash >>> 33);
         hash *= 0xff51afd7ed558ccdL;
         hash ^= (hash >>> 33);
-        int bucket = (int) (Math.abs(hash) % 100L);
+        int bucket = (int) ((hash & Long.MAX_VALUE) % 100L);
         return bucket < density;
     }
 
@@ -249,10 +257,15 @@ public class CullifyMod {
         }
     }
 
+    private static volatile boolean reloadScheduled = false;
+
     public static void scheduleWorldReload() {
+        if (reloadScheduled) return;
+        reloadScheduled = true;
         Minecraft mc = Minecraft.getInstance();
         if (mc != null) {
             mc.execute(() -> {
+                reloadScheduled = false;
                 if (mc.levelRenderer != null) {
                     mc.levelRenderer.allChanged();
                 }
@@ -273,36 +286,7 @@ public class CullifyMod {
     public static PlantType computePlantType(BlockState state) {
         Block block = state.getBlock();
 
-        // Class exclusions for tree components, saplings, mushrooms
-        if (block instanceof LeavesBlock ||
-            block instanceof SaplingBlock ||
-            block instanceof MushroomBlock ||
-            block instanceof FungusBlock ||
-            block instanceof PinkPetalsBlock) {
-            return PlantType.NONE;
-        }
-
-        ResourceLocation id = BuiltInRegistries.BLOCK.getKey(block);
-        if (id == null) {
-            return PlantType.NONE;
-        }
-        String path = id.getPath();
-
-        // Keyword exceptions for mod compatibility
-        if (path.contains("leaves") || path.contains("petal") || path.contains("sapling") || path.contains("mushroom")) {
-            return PlantType.NONE;
-        }
-
-        if (state.is(BlockTags.FLOWERS)) {
-            return PlantType.FLOWER;
-        }
-
-        if (path.contains("grass") || path.contains("fern")) {
-            if (!path.contains("block")) {
-                return PlantType.GRASS;
-            }
-        }
-
+        // 1. Direct block checks first (extremely fast reference comparisons)
         if (block == Blocks.TALL_GRASS || block == Blocks.LARGE_FERN) {
             return PlantType.GRASS;
         }
@@ -320,8 +304,41 @@ public class CullifyMod {
             return PlantType.OTHER;
         }
 
-        if (block instanceof BushBlock && !(block instanceof CropBlock)) {
+        // 2. Class exclusions for trees, saplings, mushrooms, crops
+        if (block instanceof LeavesBlock ||
+            block instanceof SaplingBlock ||
+            block instanceof MushroomBlock ||
+            block instanceof FungusBlock ||
+            block instanceof PinkPetalsBlock ||
+            block instanceof CropBlock) {
+            return PlantType.NONE;
+        }
+
+        if (block instanceof BushBlock) {
             return PlantType.OTHER;
+        }
+
+        // 3. Tag checks (O(1) set lookup)
+        if (state.is(BlockTags.FLOWERS)) {
+            return PlantType.FLOWER;
+        }
+
+        // 4. Fallback registry lookup for modded blocks
+        ResourceLocation id = BuiltInRegistries.BLOCK.getKey(block);
+        if (id == null) {
+            return PlantType.NONE;
+        }
+        String path = id.getPath();
+
+        // Keyword exceptions for mod compatibility
+        if (path.contains("leaves") || path.contains("petal") || path.contains("sapling") || path.contains("mushroom")) {
+            return PlantType.NONE;
+        }
+
+        if (path.contains("grass") || path.contains("fern")) {
+            if (!path.contains("block")) {
+                return PlantType.GRASS;
+            }
         }
 
         return PlantType.NONE;
@@ -404,7 +421,7 @@ public class CullifyMod {
         return shouldCull(state, pos.getX(), pos.getY(), pos.getZ());
     }
 
-    public static boolean shouldCull(BlockState state, int x, int y, int z) {
+    private static boolean shouldCullInternal(BlockState state, int x, int y, int z, boolean countStats, boolean applyLod) {
         if (!cachedEnabled || !hasPlayer) {
             return false;
         }
@@ -426,29 +443,37 @@ public class CullifyMod {
             return false;
         }
 
-        // LOD density filter — deterministic hash, removes distant sparse blocks
-        int lodDensity = cachedLodDensity;
-        if (lodDensity < 100) {
-            double dx0 = x + 0.5 - playerX;
-            double dz0 = z + 0.5 - playerZ;
-            double distSq = dx0 * dx0 + dz0 * dz0;
-            double halfLimitSq = (limit * 0.5) * (limit * 0.5);
-            // Only apply density thinning in the outer 50% of the cull radius
-            if (distSq > halfLimitSq && !passesLodDensity(x, y, z, lodDensity)) {
-                CullifyDebugManager.culledBlocks.increment();
-                return true;
-            }
-        }
-
         double dx = x + 0.5 - playerX;
         double dy = y + 0.5 - playerY;
         double dz = z + 0.5 - playerZ;
 
+        // LOD density filter — deterministic hash, removes distant sparse blocks
+        if (applyLod) {
+            int lodDensity = cachedLodDensity;
+            if (lodDensity < 100) {
+                double distSq = dx * dx + dz * dz;
+                double halfLimitSq = (limit * 0.5) * (limit * 0.5);
+                // Only apply density thinning in the outer 50% of the cull radius
+                if (distSq > halfLimitSq && !passesLodDensity(x, y, z, lodDensity)) {
+                    if (countStats) {
+                        CullifyDebugManager.culledBlocks.increment();
+                    }
+                    return true;
+                }
+            }
+        }
+
         if (isOutsideShape(dx, dy, dz, limit)) {
-            CullifyDebugManager.culledBlocks.increment();
+            if (countStats) {
+                CullifyDebugManager.culledBlocks.increment();
+            }
             return true;
         }
         return false;
+    }
+
+    public static boolean shouldCull(BlockState state, int x, int y, int z) {
+        return shouldCullInternal(state, x, y, z, true, true);
     }
 
     public static boolean shouldCullNoCount(BlockState state, BlockPos pos) {
@@ -456,30 +481,6 @@ public class CullifyMod {
     }
 
     public static boolean shouldCullNoCount(BlockState state, int x, int y, int z) {
-        if (!cachedEnabled || !hasPlayer) {
-            return false;
-        }
-
-        PlantType type = getPlantType(state);
-        if (type == PlantType.NONE) {
-            return false;
-        }
-
-        // Double-block plants: always use LOWER half's position.
-        if (state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF)
-                && state.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF) == DoubleBlockHalf.UPPER) {
-            y -= 1;
-        }
-
-        double limit = getCullDistance(type);
-        if (limit < 0) {
-            return false;
-        }
-
-        double dx = x + 0.5 - playerX;
-        double dy = y + 0.5 - playerY;
-        double dz = z + 0.5 - playerZ;
-
-        return isOutsideShape(dx, dy, dz, limit);
+        return shouldCullInternal(state, x, y, z, false, true);
     }
 }

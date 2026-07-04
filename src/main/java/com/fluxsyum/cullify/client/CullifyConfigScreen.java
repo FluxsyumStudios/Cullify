@@ -4,19 +4,148 @@ import com.fluxsyum.cullify.ClientEventHandler;
 import com.fluxsyum.cullify.CullifyConfig;
 import com.fluxsyum.cullify.CullifyMod;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.resources.ResourceLocation;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class CullifyConfigScreen extends Screen {
+    private static final ResourceLocation LOGO_TEXTURE = CullifyMod.LOGO;
     private final Screen parent;
     private int currentTab = 0; // 0 = General, 1 = Vegetation
+    private float currentSin;
+    private int activeSlider = -1; // -1 = none, 0 = grass_dist, 1 = flower_dist, 2 = other_dist, 3 = lod_density
+
+    // Pre-allocated static 3D vertices and edges for culling shape previews
+    private static final float[][] BOX_VERTICES = {
+        {-16,-16,-16}, {16,-16,-16}, {16,16,-16}, {-16,16,-16},
+        {-16,-16,16}, {16,-16,16}, {16,16,16}, {-16,16,16}
+    };
+    private static final int[][] BOX_EDGES = {
+        {0,1}, {1,2}, {2,3}, {3,0},
+        {4,5}, {5,6}, {6,7}, {7,4},
+        {0,4}, {1,5}, {2,6}, {3,7}
+    };
+
+    private static final float[][] TRIANGLE_VERTICES = {
+        {0, -18, 0}, {-16, 12, -12}, {16, 12, -12}, {0, 12, 16}
+    };
+    private static final int[][] TRIANGLE_EDGES = {
+        {0,1}, {0,2}, {0,3}, {1,2}, {2,3}, {3,1}
+    };
+
+    private static final float[][] SQUARE_VERTICES = {
+        {-18, 0, -18}, {18, 0, -18}, {18, 0, 18}, {-18, 0, 18}
+    };
+    private static final int[][] SQUARE_EDGES = {
+        {0,1}, {1,2}, {2,3}, {3,0}
+    };
+
+    private static final float[][] CYLINDER_VERTICES = new float[16][3];
+    private static final int[][] CYLINDER_EDGES = new int[24][2];
+
+    private static final float[][] HEXAGON_VERTICES = new float[12][3];
+    private static final int[][] HEXAGON_EDGES = new int[18][2];
+
+    private static final float[][] STAR_VERTICES = new float[20][3];
+    private static final int[][] STAR_EDGES = new int[30][2];
+
+    private static final float[][] CIRCLE_VERTICES = new float[12][3];
+    private static final int[][] CIRCLE_EDGES = new int[12][2];
+
+    private static final float[][] SPHERE_VERTICES = new float[36][3];
+    private static final int[][] SPHERE_EDGES = new int[36][2];
+
+    static {
+        // Initialize Cylinder vertices and edges
+        for (int i = 0; i < 8; i++) {
+            double angle = i * 2.0 * Math.PI / 8.0;
+            float cos = (float) Math.cos(angle);
+            float sin = (float) Math.sin(angle);
+            CYLINDER_VERTICES[i][0] = cos * 16.0F;
+            CYLINDER_VERTICES[i][1] = -16.0F;
+            CYLINDER_VERTICES[i][2] = sin * 16.0F;
+            CYLINDER_VERTICES[i+8][0] = cos * 16.0F;
+            CYLINDER_VERTICES[i+8][1] = 16.0F;
+            CYLINDER_VERTICES[i+8][2] = sin * 16.0F;
+
+            CYLINDER_EDGES[i] = new int[]{i, (i + 1) % 8};
+            CYLINDER_EDGES[i + 8] = new int[]{i + 8, ((i + 1) % 8) + 8};
+            CYLINDER_EDGES[i + 16] = new int[]{i, i + 8};
+        }
+
+        // Initialize Hexagon vertices and edges
+        for (int i = 0; i < 6; i++) {
+            double angle = i * 2.0 * Math.PI / 6.0;
+            float cos = (float) Math.cos(angle);
+            float sin = (float) Math.sin(angle);
+            HEXAGON_VERTICES[i][0] = cos * 16.0F;
+            HEXAGON_VERTICES[i][1] = -16.0F;
+            HEXAGON_VERTICES[i][2] = sin * 16.0F;
+            HEXAGON_VERTICES[i+6][0] = cos * 16.0F;
+            HEXAGON_VERTICES[i+6][1] = 16.0F;
+            HEXAGON_VERTICES[i+6][2] = sin * 16.0F;
+
+            HEXAGON_EDGES[i] = new int[]{i, (i + 1) % 6};
+            HEXAGON_EDGES[i + 6] = new int[]{i + 6, ((i + 1) % 6) + 6};
+            HEXAGON_EDGES[i + 12] = new int[]{i, i + 6};
+        }
+
+        // Initialize Extruded 3D Star
+        for (int i = 0; i < 10; i++) {
+            double angle = i * 2.0 * Math.PI / 10.0;
+            float r = (i % 2 == 0) ? 18.0F : 8.0F;
+            float cos = (float) Math.cos(angle);
+            float sin = (float) Math.sin(angle);
+            STAR_VERTICES[i][0] = cos * r;
+            STAR_VERTICES[i][1] = -5.0F;
+            STAR_VERTICES[i][2] = sin * r;
+            STAR_VERTICES[i+10][0] = cos * r;
+            STAR_VERTICES[i+10][1] = 5.0F;
+            STAR_VERTICES[i+10][2] = sin * r;
+
+            STAR_EDGES[i] = new int[]{i, (i + 1) % 10};
+            STAR_EDGES[i + 10] = new int[]{i + 10, ((i + 1) % 10) + 10};
+            STAR_EDGES[i + 20] = new int[]{i, i + 10};
+        }
+
+        // Initialize Circle
+        for (int i = 0; i < 12; i++) {
+            double angle = i * 2.0 * Math.PI / 12.0;
+            CIRCLE_VERTICES[i][0] = (float) Math.cos(angle) * 18.0F;
+            CIRCLE_VERTICES[i][1] = 0.0F;
+            CIRCLE_VERTICES[i][2] = (float) Math.sin(angle) * 18.0F;
+
+            CIRCLE_EDGES[i] = new int[]{i, (i + 1) % 12};
+        }
+
+        // Initialize Sphere (consists of three orthogonal rings)
+        for (int i = 0; i < 12; i++) {
+            double angle = i * 2.0 * Math.PI / 12.0;
+            float cos = (float) Math.cos(angle) * 18.0F;
+            float sin = (float) Math.sin(angle) * 18.0F;
+            // XY ring
+            SPHERE_VERTICES[i][0] = cos;
+            SPHERE_VERTICES[i][1] = sin;
+            SPHERE_VERTICES[i][2] = 0.0F;
+            // YZ ring
+            SPHERE_VERTICES[i+12][0] = 0.0F;
+            SPHERE_VERTICES[i+12][1] = cos;
+            SPHERE_VERTICES[i+12][2] = sin;
+            // XZ ring
+            SPHERE_VERTICES[i+24][0] = cos;
+            SPHERE_VERTICES[i+24][1] = 0.0F;
+            SPHERE_VERTICES[i+24][2] = sin;
+
+            SPHERE_EDGES[i] = new int[]{i, (i + 1) % 12};
+            SPHERE_EDGES[i + 12] = new int[]{i + 12, ((i + 1) % 12) + 12};
+            SPHERE_EDGES[i + 24] = new int[]{i + 24, ((i + 1) % 12) + 24};
+        }
+    }
 
     public CullifyConfigScreen(Screen parent) {
         super(Component.translatable("cullify.menu.title"));
@@ -25,14 +154,6 @@ public class CullifyConfigScreen extends Screen {
 
     @Override
     protected void init() {
-        int centerX = this.width / 2;
-        int centerY = this.height / 2;
-
-        // Done / Close button placed cleanly below the main config panel
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("gui.done"),
-            btn -> this.onClose()
-        ).bounds(centerX - 50, centerY + 98, 100, 20).build());
     }
 
     private void onConfigChange() {
@@ -54,7 +175,6 @@ public class CullifyConfigScreen extends Screen {
         return 16;
     }
 
-    // Version-independent pixel-perfect Bresenham line drawing helper
     private void drawLine(GuiGraphics graphics, int x1, int y1, int x2, int y2, int color) {
         int dx = Math.abs(x2 - x1);
         int dy = Math.abs(y2 - y1);
@@ -76,17 +196,63 @@ public class CullifyConfigScreen extends Screen {
         }
     }
 
-    // Ellipse / circle outline renderer for wireframes
-    private void drawEllipse(GuiGraphics graphics, int centerX, int centerY, int rx, int ry, int points, double rotation, int color) {
-        for (int i = 0; i < points; i++) {
-            double angle1 = i * 2 * Math.PI / points + rotation;
-            double angle2 = (i + 1) * 2 * Math.PI / points + rotation;
-            int px1 = centerX + (int) (rx * Math.cos(angle1));
-            int py1 = centerY + (int) (ry * Math.sin(angle1));
-            int px2 = centerX + (int) (rx * Math.cos(angle2));
-            int py2 = centerY + (int) (ry * Math.sin(angle2));
-            drawLine(graphics, px1, py1, px2, py2, color);
+    private void drawWireframe(GuiGraphics graphics, int cx, int cy, float[][] vertices, int[][] edges, int color) {
+        double angle = (System.currentTimeMillis() % 360000) / 1000.0 * 0.5;
+        double bobbing = Math.sin(System.currentTimeMillis() * 0.002) * 3.0;
+        int pCY = cy + (int) bobbing;
+
+        double cosYaw = Math.cos(angle);
+        double sinYaw = Math.sin(angle);
+        double cosPitch = Math.cos(angle * 0.6);
+        double sinPitch = Math.sin(angle * 0.6);
+
+        int[][] projected = new int[vertices.length][2];
+        for (int i = 0; i < vertices.length; i++) {
+            float x = vertices[i][0];
+            float y = vertices[i][1];
+            float z = vertices[i][2];
+
+            double rx = x * cosYaw - z * sinYaw;
+            double rz = x * sinYaw + z * cosYaw;
+            double ry = y * cosPitch - rz * sinPitch;
+
+            projected[i][0] = cx + (int) rx;
+            projected[i][1] = pCY + (int) ry;
         }
+
+        for (int[] edge : edges) {
+            drawLine(graphics, projected[edge[0]][0], projected[edge[0]][1], projected[edge[1]][0], projected[edge[1]][1], color);
+        }
+    }
+
+    private void drawGlowingRect(GuiGraphics graphics, int x1, int y1, int x2, int y2, int color) {
+        int r = (color >> 16) & 0xFF;
+        int g = (color >> 8) & 0xFF;
+        int b = color & 0xFF;
+
+        float pulse = 0.4F + 0.6F * this.currentSin;
+
+        // Core solid border line
+        graphics.fill(x1, y1, x2, y1 + 1, color);
+        graphics.fill(x1, y2 - 1, x2, y2, color);
+        graphics.fill(x1, y1, x1 + 1, y2, color);
+        graphics.fill(x2 - 1, y1, x2, y2, color);
+
+        // Extremely soft Glow Layer 1: 1px offset, ~15% opacity max
+        int alpha1 = (int) (40 * pulse) << 24;
+        int glowColor1 = alpha1 | (r << 16) | (g << 8) | b;
+        graphics.fill(x1 - 1, y1 - 1, x2 + 1, y1, glowColor1);
+        graphics.fill(x1 - 1, y2, x2 + 1, y2 + 1, glowColor1);
+        graphics.fill(x1 - 1, y1 - 1, x1, y2 + 1, glowColor1);
+        graphics.fill(x2, y1 - 1, x2 + 1, y2 + 1, glowColor1);
+
+        // Extremely soft Glow Layer 2: 2px offset, ~6% opacity max
+        int alpha2 = (int) (16 * pulse) << 24;
+        int glowColor2 = alpha2 | (r << 16) | (g << 8) | b;
+        graphics.fill(x1 - 2, y1 - 2, x2 + 2, y1 - 1, glowColor2);
+        graphics.fill(x1 - 2, y2 + 1, x2 + 2, y2 + 2, glowColor2);
+        graphics.fill(x1 - 2, y1 - 2, x1 - 1, y2 + 2, glowColor2);
+        graphics.fill(x2 + 1, y1 - 2, x2 + 2, y2 + 2, glowColor2);
     }
 
     private void drawCustomTooltip(GuiGraphics graphics, Component title, Component description, Component impactLabel, int colorImpact, int x, int y) {
@@ -94,7 +260,7 @@ public class CullifyConfigScreen extends Screen {
         List<FormattedCharSequence> splitLines = this.font.split(description, maxWidth);
         
         int tooltipW = maxWidth + 12;
-        int tooltipH = (splitLines.size() + 2) * 10 + 8; // title, description lines, performance impact
+        int tooltipH = (splitLines.size() + 2) * 10 + 8;
         
         int tx = x + 10;
         int ty = y + 10;
@@ -105,23 +271,16 @@ public class CullifyConfigScreen extends Screen {
             ty = this.height - tooltipH - 5;
         }
         
-        // Background dark glass box
-        graphics.fill(tx, ty, tx + tooltipW, ty + tooltipH, 0xEE08090B);
-        // Neon green outlines
-        graphics.fill(tx, ty, tx + tooltipW, ty + 1, 0xFF2ECC71);
-        graphics.fill(tx, ty + tooltipH - 1, tx + tooltipW, ty + tooltipH, 0xFF2ECC71);
-        graphics.fill(tx, ty, tx + 1, ty + tooltipH, 0xFF2ECC71);
-        graphics.fill(tx + tooltipW - 1, ty, tx + tooltipW, ty + tooltipH, 0xFF2ECC71);
+        // 100% opaque background to block overlapping elements showing through
+        graphics.fill(tx, ty, tx + tooltipW, ty + tooltipH, 0xFF0B0C0E);
+        drawGlowingRect(graphics, tx, ty, tx + tooltipW, ty + tooltipH, 0xFF2ECC71);
         
-        // Title text
         graphics.drawString(this.font, title, tx + 6, ty + 5, 0xFFFFFFFF, false);
         
-        // Description lines
         for (int i = 0; i < splitLines.size(); i++) {
             graphics.drawString(this.font, splitLines.get(i), tx + 6, ty + 15 + (i * 10), 0xFF888888, false);
         }
         
-        // Performance impact row
         int impactY = ty + 15 + (splitLines.size() * 10);
         graphics.drawString(this.font, Component.translatable("cullify.menu.tooltip.performance.impact"), tx + 6, impactY, 0xFF555555, false);
         graphics.drawString(this.font, impactLabel, tx + 6 + this.font.width(Component.translatable("cullify.menu.tooltip.performance.impact")), impactY, colorImpact, false);
@@ -134,34 +293,30 @@ public class CullifyConfigScreen extends Screen {
         int tx = x2 - trackW - 6;
         int ty = y1 + (height - trackH) / 2;
         
-        // Render switch track
         graphics.fill(tx, ty, tx + trackW, ty + trackH, value ? 0xFF1B5E20 : 0xFFB71C1C);
         
-        // Render switch knob
         int knobSize = 12;
         int kx = value ? (tx + trackW - knobSize) : tx;
         int ky = ty + (trackH - knobSize) / 2;
         graphics.fill(kx, ky, kx + knobSize, ky + knobSize, value ? 0xFF2ECC71 : 0xFFE74C3C);
         
-        // Render text label
         String txt = value ? "ON" : "OFF";
         int txtColor = value ? 0xFF2ECC71 : 0xFFE74C3C;
         graphics.drawString(this.font, txt, tx - 6 - this.font.width(txt), y1 + (height - 8) / 2, txtColor, false);
     }
 
-    private void drawOptionCard(GuiGraphics graphics, int x1, int y1, int x2, int y2, Component title, boolean isHovered) {
-        graphics.fill(x1, y1, x2, y2, isHovered ? 0x22FFFFFF : 0x11FFFFFF);
-        // Soft border lines
-        graphics.fill(x1, y1, x2, y1 + 1, 0x15FFFFFF);
-        graphics.fill(x1, y2 - 1, x2, y2, 0x15FFFFFF);
-        graphics.fill(x1, y1, x1 + 1, y2, 0x15FFFFFF);
-        graphics.fill(x2 - 1, y1, x2, y2, 0x15FFFFFF);
-        
-        graphics.drawString(this.font, title, x1 + 8, y1 + (y2 - y1 - 8) / 2, 0xFFFFFFFF, false);
+    private void drawOptionCard(GuiGraphics graphics, int x1, int y1, int x2, int y2, Component title, boolean isHovered, boolean centered) {
+        drawOptionCardBackground(graphics, x1, y1, x2, y2, isHovered);
+        if (centered) {
+            graphics.drawCenteredString(this.font, title, (x1 + x2) / 2, y1 + (y2 - y1 - 8) / 2, 0xFFFFFFFF);
+        } else {
+            graphics.drawString(this.font, title, x1 + 8, y1 + (y2 - y1 - 8) / 2, 0xFFFFFFFF, false);
+        }
     }
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+        this.currentSin = (float) Math.sin(System.currentTimeMillis() * 0.003);
         this.renderBackground(graphics, mouseX, mouseY, partialTicks);
         
         int centerX = this.width / 2;
@@ -172,30 +327,23 @@ public class CullifyConfigScreen extends Screen {
         int mainX2 = centerX + 180;
         int mainY2 = centerY + 90;
         
-        // Draw Glassmorphism background box
         graphics.fill(mainX1, mainY1, mainX2, mainY2, 0xEE0B0C0E);
         
-        // Neon green outlines
-        graphics.fill(mainX1, mainY1, mainX2, mainY1 + 1, 0xFF2ECC71);
-        graphics.fill(mainX1, mainY2 - 1, mainX2, mainY2, 0xFF2ECC71);
-        graphics.fill(mainX1, mainY1, mainX1 + 1, mainY2, 0xFF2ECC71);
-        graphics.fill(mainX2 - 1, mainY1, mainX2, mainY2, 0xFF2ECC71);
+        drawGlowingRect(graphics, mainX1, mainY1, mainX2, mainY2, 0xFF2ECC71);
         
-        // Sidebar dividing line
         int divX = centerX - 110;
         graphics.fill(divX, mainY1 + 5, divX + 1, mainY2 - 5, 0x22FFFFFF);
         
-        // Sidebar Header
-        graphics.drawString(this.font, "§2§lCullify", mainX1 + 10, mainY1 + 10, 0xFFFFFFFF, false);
-        graphics.drawString(this.font, Component.translatable("cullify.menu.version", CullifyMod.VERSION), mainX1 + 10, mainY1 + 22, 0xFF555555, false);
+        // Draw Logo texture scaled to 32x32
+        graphics.blit(LOGO_TEXTURE, mainX1 + 19, mainY1 + 10, 0.0F, 0.0F, 32, 32, 32, 32);
+        // Draw Name centered below the logo
+        graphics.drawCenteredString(this.font, "§2§lCullify", mainX1 + 35, mainY1 + 46, 0xFFFFFFFF);
         
-        // Tabs placement coordinates
         int tabX1 = mainX1 + 5;
         int tabX2 = divX - 5;
         
-        // Tab 0: General Settings
-        int tab1Y1 = centerY - 55;
-        int tab1Y2 = centerY - 35;
+        int tab1Y1 = centerY - 25;
+        int tab1Y2 = centerY - 5;
         boolean tab1Hovered = mouseX >= tabX1 && mouseX <= tabX2 && mouseY >= tab1Y1 && mouseY <= tab1Y2;
         if (currentTab == 0) {
             graphics.fill(tabX1, tab1Y1, tabX1 + 2, tab1Y2, 0xFF2ECC71);
@@ -208,9 +356,8 @@ public class CullifyConfigScreen extends Screen {
             graphics.drawString(this.font, Component.translatable("cullify.menu.tab.general"), tabX1 + 8, tab1Y1 + 6, 0x88888888, false);
         }
 
-        // Tab 1: Vegetation Settings
-        int tab2Y1 = centerY - 30;
-        int tab2Y2 = centerY - 10;
+        int tab2Y1 = centerY;
+        int tab2Y2 = centerY + 20;
         boolean tab2Hovered = mouseX >= tabX1 && mouseX <= tabX2 && mouseY >= tab2Y1 && mouseY <= tab2Y2;
         if (currentTab == 1) {
             graphics.fill(tabX1, tab2Y1, tabX1 + 2, tab2Y2, 0xFF2ECC71);
@@ -223,22 +370,19 @@ public class CullifyConfigScreen extends Screen {
             graphics.drawString(this.font, Component.translatable("cullify.menu.tab.vegetation"), tabX1 + 8, tab2Y1 + 6, 0x88888888, false);
         }
 
-        // Keep track of active hover tooltip
         Component activeTooltipTitle = null;
         Component activeTooltipDesc = null;
         Component activeTooltipImpact = null;
         int activeTooltipColor = 0xFF555555;
 
-        // Render Active Tab Content
         if (currentTab == 0) {
             int cardX1 = divX + 10;
-            int cardX2 = centerX + 30;
+            int cardX2 = centerX + 40;
             
-            // Enabled Toggle Card
             int card1Y1 = centerY - 60;
             int card1Y2 = centerY - 35;
             boolean card1Hovered = mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card1Y1 && mouseY <= card1Y2;
-            drawOptionCard(graphics, cardX1, card1Y1, cardX2, card1Y2, Component.translatable("cullify.options.enabled"), card1Hovered);
+            drawOptionCard(graphics, cardX1, card1Y1, cardX2, card1Y2, Component.translatable("cullify.menu.option.enabled"), card1Hovered, false);
             drawToggleSwitch(graphics, cardX1, card1Y1, cardX2, card1Y2, CullifyConfig.ENABLED.get());
             if (card1Hovered) {
                 activeTooltipTitle = Component.translatable("cullify.options.enabled");
@@ -247,11 +391,10 @@ public class CullifyConfigScreen extends Screen {
                 activeTooltipColor = 0xFF2ECC71;
             }
 
-            // Debug HUD Toggle Card
             int card2Y1 = centerY - 30;
             int card2Y2 = centerY - 5;
             boolean card2Hovered = mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card2Y1 && mouseY <= card2Y2;
-            drawOptionCard(graphics, cardX1, card2Y1, cardX2, card2Y2, Component.translatable("cullify.options.debug_mode"), card2Hovered);
+            drawOptionCard(graphics, cardX1, card2Y1, cardX2, card2Y2, Component.translatable("cullify.menu.option.debug"), card2Hovered, false);
             drawToggleSwitch(graphics, cardX1, card2Y1, cardX2, card2Y2, CullifyConfig.DEBUG_MODE.get());
             if (card2Hovered) {
                 activeTooltipTitle = Component.translatable("cullify.options.debug_mode");
@@ -260,19 +403,12 @@ public class CullifyConfigScreen extends Screen {
                 activeTooltipColor = 0xFF2ECC71;
             }
 
-            // LOD Density Card
             int card3Y1 = centerY + 5;
             int card3Y2 = centerY + 30;
             boolean card3Hovered = mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card3Y1 && mouseY <= card3Y2;
-            drawOptionCard(graphics, cardX1, card3Y1, cardX2, card3Y2, Component.translatable("cullify.menu.lod_density"), card3Hovered);
             int d = CullifyConfig.LOD_DENSITY.get();
-            String densityStr;
-            int densityColor;
-            if (d >= 100) { densityStr = "OFF"; densityColor = 0xFF2ECC71; }
-            else if (d >= 75) { densityStr = "75%"; densityColor = 0xFFF1C40F; }
-            else if (d >= 50) { densityStr = "50%"; densityColor = 0xFFE67E22; }
-            else { densityStr = "25%"; densityColor = 0xFFE74C3C; }
-            graphics.drawString(this.font, densityStr, cardX2 - 12 - this.font.width(densityStr), card3Y1 + 8, densityColor, false);
+            String densityStr = d >= 100 ? "OFF" : d + "%";
+            drawSlider(graphics, cardX1, card3Y1, cardX2, card3Y2, Component.translatable("cullify.menu.option.lod"), densityStr, d, 0, 100, card3Hovered || this.activeSlider == 3);
             if (card3Hovered) {
                 activeTooltipTitle = Component.translatable("cullify.menu.lod_density");
                 activeTooltipDesc = Component.translatable("cullify.menu.lod_density.tooltip");
@@ -280,11 +416,10 @@ public class CullifyConfigScreen extends Screen {
                 activeTooltipColor = 0xFF2ECC71;
             }
 
-            // Culling Shape Card
             int card4Y1 = centerY + 40;
             int card4Y2 = centerY + 65;
             boolean card4Hovered = mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card4Y1 && mouseY <= card4Y2;
-            drawOptionCard(graphics, cardX1, card4Y1, cardX2, card4Y2, Component.translatable("cullify.options.culling_shape"), card4Hovered);
+            drawOptionCard(graphics, cardX1, card4Y1, cardX2, card4Y2, Component.translatable("cullify.menu.option.shape"), card4Hovered, false);
             CullifyConfig.CullingShape shape = CullifyConfig.CULLING_SHAPE.get();
             String shapeName = shape.name();
             int shapeColor;
@@ -307,13 +442,11 @@ public class CullifyConfigScreen extends Screen {
                 activeTooltipColor = 0xFF2ECC71;
             }
 
-            // Shape 2D Geometry Live Wireframe Preview Panel
-            int pX1 = centerX + 40;
+            int pX1 = centerX + 50;
             int pY1 = centerY - 60;
             int pX2 = mainX2 - 15;
-            int pY2 = centerY + 65;
+            int pY2 = centerY + 55;
             
-            // Draw Panel Background and border
             graphics.fill(pX1, pY1, pX2, pY2, 0x15000000);
             graphics.fill(pX1, pY1, pX2, pY1 + 1, 0x22FFFFFF);
             graphics.fill(pX1, pY2 - 1, pX2, pY2, 0x22FFFFFF);
@@ -324,94 +457,28 @@ public class CullifyConfigScreen extends Screen {
             
             int pCX = (pX1 + pX2) / 2;
             int pCY = (pY1 + pY2) / 2 + 5;
-            double rotationAngle = (System.currentTimeMillis() % 360000) / 1000.0 * 0.4;
             
             switch (shape) {
-                case SPHERE:
-                    drawEllipse(graphics, pCX, pCY, 28, 28, 24, 0, shapeColor);
-                    drawEllipse(graphics, pCX, pCY, 28, 9, 24, rotationAngle, shapeColor);
-                    drawEllipse(graphics, pCX, pCY, 9, 28, 24, rotationAngle, shapeColor);
-                    break;
-                case CYLINDER:
-                    drawEllipse(graphics, pCX, pCY - 18, 23, 7, 20, rotationAngle, shapeColor);
-                    drawEllipse(graphics, pCX, pCY + 18, 23, 7, 20, rotationAngle, shapeColor);
-                    drawLine(graphics, pCX - 23, pCY - 18, pCX - 23, pCY + 18, shapeColor);
-                    drawLine(graphics, pCX + 23, pCY - 18, pCX + 23, pCY + 18, shapeColor);
-                    break;
-                case BOX:
-                    double cosYaw = Math.cos(rotationAngle);
-                    double sinYaw = Math.sin(rotationAngle);
-                    double cosPitch = Math.cos(rotationAngle * 0.5);
-                    double sinPitch = Math.sin(rotationAngle * 0.5);
-                    
-                    int[][] projected = new int[8][2];
-                    int[][] vertices = {
-                        {-18,-18,-18}, {18,-18,-18}, {18,18,-18}, {-18,18,-18},
-                        {-18,-18,18}, {18,-18,18}, {18,18,18}, {-18,18,18}
-                    };
-                    for (int i = 0; i < 8; i++) {
-                        int x = vertices[i][0];
-                        int y = vertices[i][1];
-                        int z = vertices[i][2];
-                        double rx = x * cosYaw - z * sinYaw;
-                        double rz = x * sinYaw + z * cosYaw;
-                        double ry = y * cosPitch - rz * sinPitch;
-                        projected[i][0] = pCX + (int) rx;
-                        projected[i][1] = pCY + (int) ry;
-                    }
-                    drawLine(graphics, projected[0][0], projected[0][1], projected[1][0], projected[1][1], shapeColor);
-                    drawLine(graphics, projected[1][0], projected[1][1], projected[2][0], projected[2][1], shapeColor);
-                    drawLine(graphics, projected[2][0], projected[2][1], projected[3][0], projected[3][1], shapeColor);
-                    drawLine(graphics, projected[3][0], projected[3][1], projected[0][0], projected[0][1], shapeColor);
-                    drawLine(graphics, projected[4][0], projected[4][1], projected[5][0], projected[5][1], shapeColor);
-                    drawLine(graphics, projected[5][0], projected[5][1], projected[6][0], projected[6][1], shapeColor);
-                    drawLine(graphics, projected[6][0], projected[6][1], projected[7][0], projected[7][1], shapeColor);
-                    drawLine(graphics, projected[7][0], projected[7][1], projected[4][0], projected[4][1], shapeColor);
-                    for (int i = 0; i < 4; i++) {
-                        drawLine(graphics, projected[i][0], projected[i][1], projected[i+4][0], projected[i+4][1], shapeColor);
-                    }
-                    break;
-                case TRIANGLE:
-                    drawEllipse(graphics, pCX, pCY, 28, 28, 3, rotationAngle, shapeColor);
-                    break;
-                case HEXAGON:
-                    drawEllipse(graphics, pCX, pCY, 28, 28, 6, rotationAngle, shapeColor);
-                    break;
-                case STAR:
-                    int outerR = 28;
-                    int innerR = 11;
-                    int starPoints = 10;
-                    int[] px = new int[starPoints];
-                    int[] py = new int[starPoints];
-                    for (int i = 0; i < starPoints; i++) {
-                        double angle = i * 2 * Math.PI / starPoints + rotationAngle;
-                        int r = (i % 2 == 0) ? outerR : innerR;
-                        px[i] = pCX + (int) (r * Math.cos(angle));
-                        py[i] = pCY + (int) (r * Math.sin(angle));
-                    }
-                    for (int i = 0; i < starPoints; i++) {
-                        drawLine(graphics, px[i], py[i], px[(i + 1) % starPoints], py[(i + 1) % starPoints], shapeColor);
-                    }
-                    break;
-                case SQUARE:
-                    drawEllipse(graphics, pCX, pCY, 28, 28, 4, rotationAngle, shapeColor);
-                    break;
-                case CIRCLE:
-                    drawEllipse(graphics, pCX, pCY, 28, 28, 24, rotationAngle, shapeColor);
-                    break;
+                case SPHERE: drawWireframe(graphics, pCX, pCY, SPHERE_VERTICES, SPHERE_EDGES, shapeColor); break;
+                case CYLINDER: drawWireframe(graphics, pCX, pCY, CYLINDER_VERTICES, CYLINDER_EDGES, shapeColor); break;
+                case BOX: drawWireframe(graphics, pCX, pCY, BOX_VERTICES, BOX_EDGES, shapeColor); break;
+                case TRIANGLE: drawWireframe(graphics, pCX, pCY, TRIANGLE_VERTICES, TRIANGLE_EDGES, shapeColor); break;
+                case HEXAGON: drawWireframe(graphics, pCX, pCY, HEXAGON_VERTICES, HEXAGON_EDGES, shapeColor); break;
+                case STAR: drawWireframe(graphics, pCX, pCY, STAR_VERTICES, STAR_EDGES, shapeColor); break;
+                case SQUARE: drawWireframe(graphics, pCX, pCY, SQUARE_VERTICES, SQUARE_EDGES, shapeColor); break;
+                case CIRCLE: drawWireframe(graphics, pCX, pCY, CIRCLE_VERTICES, CIRCLE_EDGES, shapeColor); break;
             }
 
         } else if (currentTab == 1) {
             int cardX1 = divX + 10;
-            int cardX2 = centerX + 30;
-            int distX1 = centerX + 40;
+            int cardX2 = centerX + 40;
+            int distX1 = centerX + 50;
             int distX2 = mainX2 - 15;
 
-            // Grass Toggle Card
             int card1Y1 = centerY - 60;
             int card1Y2 = centerY - 35;
             boolean card1Hovered = mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card1Y1 && mouseY <= card1Y2;
-            drawOptionCard(graphics, cardX1, card1Y1, cardX2, card1Y2, Component.translatable("cullify.options.cull_grass"), card1Hovered);
+            drawOptionCard(graphics, cardX1, card1Y1, cardX2, card1Y2, Component.translatable("cullify.menu.option.grass"), card1Hovered, false);
             drawToggleSwitch(graphics, cardX1, card1Y1, cardX2, card1Y2, CullifyConfig.CULL_GRASS.get());
             if (card1Hovered) {
                 activeTooltipTitle = Component.translatable("cullify.options.cull_grass");
@@ -420,10 +487,9 @@ public class CullifyConfigScreen extends Screen {
                 activeTooltipColor = 0xFFE67E22;
             }
 
-            // Grass Distance Card
             boolean dist1Hovered = mouseX >= distX1 && mouseX <= distX2 && mouseY >= card1Y1 && mouseY <= card1Y2;
             int grassDist = CullifyConfig.GRASS_CULL_DISTANCE.get();
-            drawOptionCard(graphics, distX1, card1Y1, distX2, card1Y2, Component.translatable("cullify.menu.distance", grassDist), dist1Hovered);
+            drawSlider(graphics, distX1, card1Y1, distX2, card1Y2, Component.translatable("cullify.menu.slider.distance"), grassDist + " blocks", grassDist, 16, 256, dist1Hovered || this.activeSlider == 0);
             if (dist1Hovered) {
                 activeTooltipTitle = Component.translatable("cullify.options.grass_distance");
                 activeTooltipDesc = Component.translatable("cullify.options.grass_distance.tooltip");
@@ -431,11 +497,10 @@ public class CullifyConfigScreen extends Screen {
                 activeTooltipColor = 0xFFE67E22;
             }
 
-            // Flowers Toggle Card
             int card2Y1 = centerY - 15;
             int card2Y2 = centerY + 10;
             boolean card2Hovered = mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card2Y1 && mouseY <= card2Y2;
-            drawOptionCard(graphics, cardX1, card2Y1, cardX2, card2Y2, Component.translatable("cullify.options.cull_flowers"), card2Hovered);
+            drawOptionCard(graphics, cardX1, card2Y1, cardX2, card2Y2, Component.translatable("cullify.menu.option.flowers"), card2Hovered, false);
             drawToggleSwitch(graphics, cardX1, card2Y1, cardX2, card2Y2, CullifyConfig.CULL_FLOWERS.get());
             if (card2Hovered) {
                 activeTooltipTitle = Component.translatable("cullify.options.cull_flowers");
@@ -444,10 +509,9 @@ public class CullifyConfigScreen extends Screen {
                 activeTooltipColor = 0xFF2ECC71;
             }
 
-            // Flowers Distance Card
             boolean dist2Hovered = mouseX >= distX1 && mouseX <= distX2 && mouseY >= card2Y1 && mouseY <= card2Y2;
             int flowerDist = CullifyConfig.FLOWER_CULL_DISTANCE.get();
-            drawOptionCard(graphics, distX1, card2Y1, distX2, card2Y2, Component.translatable("cullify.menu.distance", flowerDist), dist2Hovered);
+            drawSlider(graphics, distX1, card2Y1, distX2, card2Y2, Component.translatable("cullify.menu.slider.distance"), flowerDist + " blocks", flowerDist, 16, 256, dist2Hovered || this.activeSlider == 1);
             if (dist2Hovered) {
                 activeTooltipTitle = Component.translatable("cullify.options.flower_distance");
                 activeTooltipDesc = Component.translatable("cullify.options.flower_distance.tooltip");
@@ -455,11 +519,10 @@ public class CullifyConfigScreen extends Screen {
                 activeTooltipColor = 0xFFE67E22;
             }
 
-            // Other Toggle Card
             int card3Y1 = centerY + 30;
             int card3Y2 = centerY + 55;
             boolean card3Hovered = mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card3Y1 && mouseY <= card3Y2;
-            drawOptionCard(graphics, cardX1, card3Y1, cardX2, card3Y2, Component.translatable("cullify.options.cull_other_plants"), card3Hovered);
+            drawOptionCard(graphics, cardX1, card3Y1, cardX2, card3Y2, Component.translatable("cullify.menu.option.other"), card3Hovered, false);
             drawToggleSwitch(graphics, cardX1, card3Y1, cardX2, card3Y2, CullifyConfig.CULL_OTHER_PLANTS.get());
             if (card3Hovered) {
                 activeTooltipTitle = Component.translatable("cullify.options.cull_other_plants");
@@ -468,10 +531,9 @@ public class CullifyConfigScreen extends Screen {
                 activeTooltipColor = 0xFF2ECC71;
             }
 
-            // Other Distance Card
             boolean dist3Hovered = mouseX >= distX1 && mouseX <= distX2 && mouseY >= card3Y1 && mouseY <= card3Y2;
             int otherDist = CullifyConfig.OTHER_PLANT_CULL_DISTANCE.get();
-            drawOptionCard(graphics, distX1, card3Y1, distX2, card3Y2, Component.translatable("cullify.menu.distance", otherDist), dist3Hovered);
+            drawSlider(graphics, distX1, card3Y1, distX2, card3Y2, Component.translatable("cullify.menu.slider.distance"), otherDist + " blocks", otherDist, 16, 256, dist3Hovered || this.activeSlider == 2);
             if (dist3Hovered) {
                 activeTooltipTitle = Component.translatable("cullify.options.other_distance");
                 activeTooltipDesc = Component.translatable("cullify.options.other_distance.tooltip");
@@ -480,10 +542,15 @@ public class CullifyConfigScreen extends Screen {
             }
         }
 
-        // Render standard button and widgets
+        int doneX1 = centerX - 50;
+        int doneX2 = centerX + 50;
+        int doneY1 = centerY + 70;
+        int doneY2 = centerY + 85;
+        boolean doneHovered = mouseX >= doneX1 && mouseX <= doneX2 && mouseY >= doneY1 && mouseY <= doneY2;
+        drawOptionCard(graphics, doneX1, doneY1, doneX2, doneY2, Component.translatable("gui.done"), doneHovered, true);
+
         super.render(graphics, mouseX, mouseY, partialTicks);
 
-        // Render custom glass tooltip at the absolute end to overlay correctly
         if (activeTooltipTitle != null && activeTooltipDesc != null) {
             drawCustomTooltip(graphics, activeTooltipTitle, activeTooltipDesc, activeTooltipImpact, activeTooltipColor, mouseX, mouseY);
         }
@@ -497,30 +564,36 @@ public class CullifyConfigScreen extends Screen {
         int tabX1 = centerX - 175;
         int tabX2 = centerX - 115;
         
-        // Tab General
-        int tab1Y1 = centerY - 55;
-        int tab1Y2 = centerY - 35;
+        int tab1Y1 = centerY - 25;
+        int tab1Y2 = centerY - 5;
         if (mouseX >= tabX1 && mouseX <= tabX2 && mouseY >= tab1Y1 && mouseY <= tab1Y2) {
             this.currentTab = 0;
             this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
             return true;
         }
 
-        // Tab Vegetation
-        int tab2Y1 = centerY - 30;
-        int tab2Y2 = centerY - 10;
+        int tab2Y1 = centerY;
+        int tab2Y2 = centerY + 20;
         if (mouseX >= tabX1 && mouseX <= tabX2 && mouseY >= tab2Y1 && mouseY <= tab2Y2) {
             this.currentTab = 1;
             this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
             return true;
         }
 
-        // Card Clicks depending on active tab
+        int doneX1 = centerX - 50;
+        int doneX2 = centerX + 50;
+        int doneY1 = centerY + 70;
+        int doneY2 = centerY + 85;
+        if (mouseX >= doneX1 && mouseX <= doneX2 && mouseY >= doneY1 && mouseY <= doneY2) {
+            this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+            this.onClose();
+            return true;
+        }
+
         if (currentTab == 0) {
             int cardX1 = centerX - 95;
-            int cardX2 = centerX + 25;
+            int cardX2 = centerX + 40;
             
-            // Enabled Toggle Card
             int card1Y1 = centerY - 60;
             int card1Y2 = centerY - 35;
             if (mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card1Y1 && mouseY <= card1Y2) {
@@ -530,7 +603,6 @@ public class CullifyConfigScreen extends Screen {
                 return true;
             }
 
-            // Debug HUD Toggle Card
             int card2Y1 = centerY - 30;
             int card2Y2 = centerY - 5;
             if (mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card2Y1 && mouseY <= card2Y2) {
@@ -540,23 +612,15 @@ public class CullifyConfigScreen extends Screen {
                 return true;
             }
 
-            // LOD Density Card
             int card3Y1 = centerY + 5;
             int card3Y2 = centerY + 30;
             if (mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card3Y1 && mouseY <= card3Y2) {
-                int current = CullifyConfig.LOD_DENSITY.get();
-                int next;
-                if (current >= 100) next = 75;
-                else if (current >= 75)  next = 50;
-                else if (current >= 50)  next = 25;
-                else                     next = 100;
-                CullifyConfig.LOD_DENSITY.set(next);
-                onConfigChange();
+                this.activeSlider = 3;
+                updateSliderValue(mouseX);
                 this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
                 return true;
             }
 
-            // Culling Shape Card
             int card4Y1 = centerY + 40;
             int card4Y2 = centerY + 65;
             if (mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card4Y1 && mouseY <= card4Y2) {
@@ -571,11 +635,10 @@ public class CullifyConfigScreen extends Screen {
             }
         } else if (currentTab == 1) {
             int cardX1 = centerX - 95;
-            int cardX2 = centerX + 25;
-            int distX1 = centerX + 40;
-            int distX2 = centerX - 15 + 180; // mainX2 - 15
+            int cardX2 = centerX + 40;
+            int distX1 = centerX + 50;
+            int distX2 = centerX - 15 + 180;
 
-            // Grass Toggle Card
             int card1Y1 = centerY - 60;
             int card1Y2 = centerY - 35;
             if (mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card1Y1 && mouseY <= card1Y2) {
@@ -584,16 +647,13 @@ public class CullifyConfigScreen extends Screen {
                 this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
                 return true;
             }
-            // Grass Distance Card
             if (mouseX >= distX1 && mouseX <= distX2 && mouseY >= card1Y1 && mouseY <= card1Y2) {
-                int nextDist = cycleDistance(CullifyConfig.GRASS_CULL_DISTANCE.get());
-                CullifyConfig.GRASS_CULL_DISTANCE.set(nextDist);
-                onConfigChange();
+                this.activeSlider = 0;
+                updateSliderValue(mouseX);
                 this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
                 return true;
             }
 
-            // Flowers Toggle Card
             int card2Y1 = centerY - 15;
             int card2Y2 = centerY + 10;
             if (mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card2Y1 && mouseY <= card2Y2) {
@@ -602,16 +662,13 @@ public class CullifyConfigScreen extends Screen {
                 this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
                 return true;
             }
-            // Flowers Distance Card
             if (mouseX >= distX1 && mouseX <= distX2 && mouseY >= card2Y1 && mouseY <= card2Y2) {
-                int nextDist = cycleDistance(CullifyConfig.FLOWER_CULL_DISTANCE.get());
-                CullifyConfig.FLOWER_CULL_DISTANCE.set(nextDist);
-                onConfigChange();
+                this.activeSlider = 1;
+                updateSliderValue(mouseX);
                 this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
                 return true;
             }
 
-            // Other Toggle Card
             int card3Y1 = centerY + 30;
             int card3Y2 = centerY + 55;
             if (mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card3Y1 && mouseY <= card3Y2) {
@@ -620,17 +677,115 @@ public class CullifyConfigScreen extends Screen {
                 this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
                 return true;
             }
-            // Other Distance Card
             if (mouseX >= distX1 && mouseX <= distX2 && mouseY >= card3Y1 && mouseY <= card3Y2) {
-                int nextDist = cycleDistance(CullifyConfig.OTHER_PLANT_CULL_DISTANCE.get());
-                CullifyConfig.OTHER_PLANT_CULL_DISTANCE.set(nextDist);
-                onConfigChange();
+                this.activeSlider = 2;
+                updateSliderValue(mouseX);
                 this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
                 return true;
             }
         }
 
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        this.activeSlider = -1;
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (this.activeSlider != -1) {
+            updateSliderValue(mouseX);
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    private void updateSliderValue(double mouseX) {
+        int centerX = this.width / 2;
+        int divX = centerX - 110;
+        int mainX2 = centerX + 180;
+
+        int distX1 = centerX + 50 + 8;
+        int distX2 = mainX2 - 15 - 8;
+        int distW = distX2 - distX1;
+
+        int cardX1 = divX + 10 + 8;
+        int cardX2 = centerX + 40 - 8;
+        int cardW = cardX2 - cardX1;
+
+        if (this.activeSlider == 0) { // grass distance
+            double pct = (mouseX - distX1) / distW;
+            int val = 16 + (int) (pct * (256 - 16));
+            val = Math.clamp((val / 8) * 8, 16, 256);
+            CullifyConfig.GRASS_CULL_DISTANCE.set(val);
+            onConfigChange();
+        } else if (this.activeSlider == 1) { // flower distance
+            double pct = (mouseX - distX1) / distW;
+            int val = 16 + (int) (pct * (256 - 16));
+            val = Math.clamp((val / 8) * 8, 16, 256);
+            CullifyConfig.FLOWER_CULL_DISTANCE.set(val);
+            onConfigChange();
+        } else if (this.activeSlider == 2) { // other distance
+            double pct = (mouseX - distX1) / distW;
+            int val = 16 + (int) (pct * (256 - 16));
+            val = Math.clamp((val / 8) * 8, 16, 256);
+            CullifyConfig.OTHER_PLANT_CULL_DISTANCE.set(val);
+            onConfigChange();
+        } else if (this.activeSlider == 3) { // lod density
+            double pct = (mouseX - cardX1) / cardW;
+            int val = (int) (pct * 100);
+            val = Math.clamp((val / 5) * 5, 0, 100);
+            CullifyConfig.LOD_DENSITY.set(val);
+            onConfigChange();
+        }
+    }
+
+    private void drawSlider(GuiGraphics graphics, int x1, int y1, int x2, int y2, Component title, String valueStr, int value, int min, int max, boolean isHovered) {
+        drawOptionCardBackground(graphics, x1, y1, x2, y2, isHovered);
+        
+        graphics.drawString(this.font, title, x1 + 8, y1 + 4, 0xFFFFFFFF, false);
+        graphics.drawString(this.font, valueStr, x2 - 8 - this.font.width(valueStr), y1 + 4, 0xFF2ECC71, false);
+
+        int trackX1 = x1 + 8;
+        int trackX2 = x2 - 8;
+        int trackY = y2 - 6;
+        
+        graphics.fill(trackX1, trackY - 1, trackX2, trackY + 1, 0x33FFFFFF);
+        
+        double pct = (double) (value - min) / (max - min);
+        pct = Math.clamp(pct, 0.0, 1.0);
+        int handleX = trackX1 + (int) (pct * (trackX2 - trackX1));
+        
+        graphics.fill(trackX1, trackY - 1, handleX, trackY + 1, 0xFF2ECC71);
+        
+        int handleW = 4;
+        int handleH = 8;
+        graphics.fill(handleX - handleW / 2, trackY - handleH / 2, handleX + handleW / 2 + 1, trackY + handleH / 2 + 1, 0xFFFFFFFF);
+        
+        float pulse = 0.6F + 0.4F * this.currentSin;
+        int glowColor = ((int) (150 * pulse) << 24) | 0x2ECC71;
+        graphics.fill(handleX - handleW / 2 - 1, trackY - handleH / 2 - 1, handleX - handleW / 2, trackY + handleH / 2 + 2, glowColor);
+        graphics.fill(handleX + handleW / 2 + 1, trackY - handleH / 2 - 1, handleX + handleW / 2 + 2, trackY + handleH / 2 + 2, glowColor);
+    }
+
+    private void drawOptionCardBackground(GuiGraphics graphics, int x1, int y1, int x2, int y2, boolean isHovered) {
+        graphics.fill(x1, y1, x2, y2, isHovered ? 0x22FFFFFF : 0x11FFFFFF);
+        if (isHovered) {
+            float pulse = 0.6F + 0.4F * this.currentSin;
+            int glowColor = ((int) (120 * pulse) << 24) | 0x2ECC71;
+            graphics.fill(x1, y1, x2, y1 + 1, glowColor);
+            graphics.fill(x1, y2 - 1, x2, y2, glowColor);
+            graphics.fill(x1, y1, x1 + 1, y2, glowColor);
+            graphics.fill(x2 - 1, y1, x2, y2, glowColor);
+        } else {
+            graphics.fill(x1, y1, x2, y1 + 1, 0x15FFFFFF);
+            graphics.fill(x1, y2 - 1, x2, y2, 0x15FFFFFF);
+            graphics.fill(x1, y1, x1 + 1, y2, 0x15FFFFFF);
+            graphics.fill(x2 - 1, y1, x2, y2, 0x15FFFFFF);
+        }
     }
 
     @Override
@@ -642,7 +797,6 @@ public class CullifyConfigScreen extends Screen {
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         if (this.minecraft.level != null) {
             this.renderBlurredBackground(partialTicks);
-            this.renderTransparentBackground(graphics);
         } else {
             super.renderBackground(graphics, mouseX, mouseY, partialTicks);
         }

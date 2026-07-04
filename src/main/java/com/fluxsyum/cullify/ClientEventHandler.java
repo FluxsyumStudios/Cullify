@@ -390,7 +390,7 @@ public class ClientEventHandler {
         int currentTick = tickCounter;
 
         // Collect sections that need a render rebuild; dispatched to main thread below
-        List<long[]> dirtyPositions = new ArrayList<>();
+        List<Long> dirtyPositions = new ArrayList<>();
 
         for (int sx = pSecX - secRange; sx <= pSecX + secRange; sx++) {
             double minX  = sx << 4;
@@ -399,8 +399,12 @@ public class ClientEventHandler {
             double farDx  = px < minX + 8.0 ? maxX - px : px - minX;
 
             for (int sz = pSecZ - secRange; sz <= pSecZ + secRange; sz++) {
-                if (!level.getChunkSource().hasChunk(sx, sz)) {
-                    continue;
+                try {
+                    if (!level.getChunkSource().hasChunk(sx, sz)) {
+                        continue;
+                    }
+                } catch (Exception e) {
+                    continue; // Chunk source modified concurrently or level closed, skip safely
                 }
                 double minZ   = sz << 4;
                 double maxZ   = minZ + 16.0;
@@ -458,7 +462,7 @@ public class ClientEventHandler {
                     }
 
                     if (rebuild) {
-                        dirtyPositions.add(new long[]{sx, sy, sz});
+                        dirtyPositions.add(posLong);
                     }
                 }
             }
@@ -466,7 +470,7 @@ public class ClientEventHandler {
 
         // Evict stale entries (safe on ConcurrentHashMap)
         if (currentTick % 20 == 0) {
-            sectionStates.entrySet().removeIf(entry -> entry.getValue().lastSeenTick != currentTick);
+            sectionStates.entrySet().removeIf(entry -> (currentTick - entry.getValue().lastSeenTick) > 20);
         }
 
         // Dispatch dirty-marking to the main/render thread — invokeSetSectionDirty is not thread-safe
@@ -478,8 +482,11 @@ public class ClientEventHandler {
                 com.fluxsyum.cullify.mixin.LevelRendererAccessor acc =
                     (com.fluxsyum.cullify.mixin.LevelRendererAccessor) lr;
                 if (acc.getViewArea() == null) return;
-                for (long[] pos : dirtyPositions) {
-                    acc.invokeSetSectionDirty((int) pos[0], (int) pos[1], (int) pos[2], false);
+                for (long packed : dirtyPositions) {
+                    int sx = net.minecraft.core.SectionPos.x(packed);
+                    int sy = net.minecraft.core.SectionPos.y(packed);
+                    int sz = net.minecraft.core.SectionPos.z(packed);
+                    acc.invokeSetSectionDirty(sx, sy, sz, false);
                     CullifyDebugManager.chunkUpdates.increment();
                 }
             });
