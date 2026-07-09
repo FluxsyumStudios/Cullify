@@ -91,7 +91,57 @@ public class SodiumCompat implements ConfigEntryPoint {
                 )
         );
 
+        // 4. Smart Scale Toggle
+        mainGroup.addOption(builder.createBooleanOption(ResourceLocation.fromNamespaceAndPath("cullify", "smart_scale"))
+                .setName(Component.translatable("cullify.menu.option.smart_scale"))
+                .setTooltip(Component.translatable("cullify.menu.option.smart_scale.tooltip"))
+                .setDefaultValue(false)
+                .setStorageHandler(STORAGE_HANDLER)
+                .setBinding(
+                        v -> {
+                            CullifyConfig.SMART_SCALE.set(v);
+                            CullifyMod.updateConfigCache();
+                        },
+                        () -> CullifyConfig.SMART_SCALE.get()
+                )
+        );
+
+        // 5. Target FPS Slider
+        mainGroup.addOption(builder.createIntegerOption(ResourceLocation.fromNamespaceAndPath("cullify", "target_fps"))
+                .setName(Component.translatable("cullify.menu.option.target_fps"))
+                .setTooltip(Component.translatable("cullify.menu.option.target_fps.tooltip"))
+                .setRange(30, 240, 10)
+                .setValueFormatter(v -> Component.literal(v + " FPS"))
+                .setDefaultValue(60)
+                .setStorageHandler(STORAGE_HANDLER)
+                .setBinding(
+                        v -> {
+                            CullifyConfig.TARGET_FPS.set(v);
+                            CullifyMod.updateConfigCache();
+                        },
+                        () -> CullifyConfig.TARGET_FPS.get()
+                )
+        );
+
+        // 6. Light-Aware Culling Toggle
+        mainGroup.addOption(builder.createBooleanOption(ResourceLocation.fromNamespaceAndPath("cullify", "light_aware_culling"))
+                .setName(Component.translatable("cullify.menu.option.light_aware"))
+                .setTooltip(Component.translatable("cullify.menu.option.light_aware.tooltip"))
+                .setDefaultValue(false)
+                .setStorageHandler(STORAGE_HANDLER)
+                .setBinding(
+                        v -> {
+                            CullifyConfig.LIGHT_AWARE_CULLING.set(v);
+                            CullifyMod.updateConfigCache();
+                            CullifyMod.sectionLightFactors.clear();
+                            CullifyMod.scheduleWorldReload();
+                        },
+                        () -> CullifyConfig.LIGHT_AWARE_CULLING.get()
+                )
+        );
+
         page.addOptionGroup(mainGroup);
+
 
         // Grass Group
         OptionGroupBuilder grassGroup = builder.createOptionGroup();

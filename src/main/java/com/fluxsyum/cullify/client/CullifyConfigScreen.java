@@ -18,7 +18,31 @@ public class CullifyConfigScreen extends Screen {
     private final Screen parent;
     private int currentTab = 0; // 0 = General, 1 = Vegetation
     private float currentSin;
-    private int activeSlider = -1; // -1 = none, 0 = grass_dist, 1 = flower_dist, 2 = other_dist, 3 = lod_density
+    private int activeSlider = -1; // -1=none, 0=grass_dist, 1=flower_dist, 2=other_dist, 3=lod_density, 4=target_fps
+    private int generalScroll = 0;
+    private int vegetationScroll = 0;
+
+    private int getMaxGeneralScroll() {
+        // 7 cards of height 25 with 5px spacing = 205px. Viewport = 140px. Max scroll = 65px.
+        return 65;
+    }
+
+    private int getMaxVegetationScroll() {
+        return 0;
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (this.currentTab == 0) {
+            this.generalScroll = Math.clamp(this.generalScroll - (int) (scrollY * 12), 0, getMaxGeneralScroll());
+            return true;
+        } else if (this.currentTab == 1) {
+            this.vegetationScroll = Math.clamp(this.vegetationScroll - (int) (scrollY * 12), 0, getMaxVegetationScroll());
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
 
     // Pre-allocated static 3D vertices and edges for culling shape previews
     private static final float[][] BOX_VERTICES = {
@@ -299,10 +323,6 @@ public class CullifyConfigScreen extends Screen {
         int kx = value ? (tx + trackW - knobSize) : tx;
         int ky = ty + (trackH - knobSize) / 2;
         graphics.fill(kx, ky, kx + knobSize, ky + knobSize, value ? 0xFF2ECC71 : 0xFFE74C3C);
-        
-        String txt = value ? "ON" : "OFF";
-        int txtColor = value ? 0xFF2ECC71 : 0xFFE74C3C;
-        graphics.drawString(this.font, txt, tx - 6 - this.font.width(txt), y1 + (height - 8) / 2, txtColor, false);
     }
 
     private void drawOptionCard(GuiGraphics graphics, int x1, int y1, int x2, int y2, Component title, boolean isHovered, boolean centered) {
@@ -379,9 +399,21 @@ public class CullifyConfigScreen extends Screen {
             int cardX1 = divX + 10;
             int cardX2 = centerX + 40;
             
-            int card1Y1 = centerY - 60;
-            int card1Y2 = centerY - 35;
-            boolean card1Hovered = mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card1Y1 && mouseY <= card1Y2;
+            int viewportX1 = divX + 5;
+            int viewportX2 = centerX + 42;
+            int viewportY1 = centerY - 75;
+            int viewportY2 = centerY + 65;
+
+            // Enable scissor clipping so scrolled options don't overflow the container
+            graphics.enableScissor(viewportX1, viewportY1, viewportX2, viewportY2);
+
+            int startY = centerY - 75 - this.generalScroll;
+            boolean inViewport = mouseY >= viewportY1 && mouseY <= viewportY2;
+
+            // Card 1: Enabled
+            int card1Y1 = startY;
+            int card1Y2 = card1Y1 + 25;
+            boolean card1Hovered = inViewport && mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card1Y1 && mouseY <= card1Y2;
             drawOptionCard(graphics, cardX1, card1Y1, cardX2, card1Y2, Component.translatable("cullify.menu.option.enabled"), card1Hovered, false);
             drawToggleSwitch(graphics, cardX1, card1Y1, cardX2, card1Y2, CullifyConfig.ENABLED.get());
             if (card1Hovered) {
@@ -391,9 +423,10 @@ public class CullifyConfigScreen extends Screen {
                 activeTooltipColor = 0xFF2ECC71;
             }
 
-            int card2Y1 = centerY - 30;
-            int card2Y2 = centerY - 5;
-            boolean card2Hovered = mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card2Y1 && mouseY <= card2Y2;
+            // Card 2: Debug Mode
+            int card2Y1 = startY + 30;
+            int card2Y2 = card2Y1 + 25;
+            boolean card2Hovered = inViewport && mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card2Y1 && mouseY <= card2Y2;
             drawOptionCard(graphics, cardX1, card2Y1, cardX2, card2Y2, Component.translatable("cullify.menu.option.debug"), card2Hovered, false);
             drawToggleSwitch(graphics, cardX1, card2Y1, cardX2, card2Y2, CullifyConfig.DEBUG_MODE.get());
             if (card2Hovered) {
@@ -403,9 +436,10 @@ public class CullifyConfigScreen extends Screen {
                 activeTooltipColor = 0xFF2ECC71;
             }
 
-            int card3Y1 = centerY + 5;
-            int card3Y2 = centerY + 30;
-            boolean card3Hovered = mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card3Y1 && mouseY <= card3Y2;
+            // Card 3: LOD Density
+            int card3Y1 = startY + 60;
+            int card3Y2 = card3Y1 + 25;
+            boolean card3Hovered = inViewport && mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card3Y1 && mouseY <= card3Y2;
             int d = CullifyConfig.LOD_DENSITY.get();
             String densityStr = d >= 100 ? "OFF" : d + "%";
             drawSlider(graphics, cardX1, card3Y1, cardX2, card3Y2, Component.translatable("cullify.menu.option.lod"), densityStr, d, 0, 100, card3Hovered || this.activeSlider == 3);
@@ -416,9 +450,10 @@ public class CullifyConfigScreen extends Screen {
                 activeTooltipColor = 0xFF2ECC71;
             }
 
-            int card4Y1 = centerY + 40;
-            int card4Y2 = centerY + 65;
-            boolean card4Hovered = mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card4Y1 && mouseY <= card4Y2;
+            // Card 4: Culling Shape
+            int card4Y1 = startY + 90;
+            int card4Y2 = card4Y1 + 25;
+            boolean card4Hovered = inViewport && mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card4Y1 && mouseY <= card4Y2;
             drawOptionCard(graphics, cardX1, card4Y1, cardX2, card4Y2, Component.translatable("cullify.menu.option.shape"), card4Hovered, false);
             CullifyConfig.CullingShape shape = CullifyConfig.CULLING_SHAPE.get();
             String shapeName = shape.name();
@@ -442,10 +477,58 @@ public class CullifyConfigScreen extends Screen {
                 activeTooltipColor = 0xFF2ECC71;
             }
 
+            // Card 5: Smart Scale
+            int card5Y1 = startY + 120;
+            int card5Y2 = card5Y1 + 25;
+            boolean card5Hovered = inViewport && mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card5Y1 && mouseY <= card5Y2;
+            drawOptionCard(graphics, cardX1, card5Y1, cardX2, card5Y2, Component.translatable("cullify.menu.option.smart_scale"), card5Hovered, false);
+            drawToggleSwitch(graphics, cardX1, card5Y1, cardX2, card5Y2, CullifyConfig.SMART_SCALE.get());
+            if (card5Hovered) {
+                activeTooltipTitle = Component.translatable("cullify.menu.option.smart_scale");
+                activeTooltipDesc = Component.translatable("cullify.menu.option.smart_scale.tooltip");
+                activeTooltipImpact = Component.translatable("cullify.menu.tooltip.performance.none");
+                activeTooltipColor = 0xFF3498DB;
+            }
+
+            // Card 6: Target FPS
+            int card6Y1 = startY + 150;
+            int card6Y2 = card6Y1 + 25;
+            boolean card6Hovered = inViewport && mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card6Y1 && mouseY <= card6Y2;
+            int targetFps = CullifyConfig.TARGET_FPS.get();
+            drawSlider(graphics, cardX1, card6Y1, cardX2, card6Y2, Component.translatable("cullify.menu.option.target_fps"), targetFps + " FPS", targetFps, 30, 240, card6Hovered || this.activeSlider == 4);
+            // Dim the slider when Smart Scale is off
+            if (!CullifyConfig.SMART_SCALE.get()) {
+                graphics.fill(cardX1, card6Y1, cardX2, card6Y2, 0x88000000);
+            }
+            if (card6Hovered) {
+                activeTooltipTitle = Component.translatable("cullify.menu.option.target_fps");
+                activeTooltipDesc = Component.translatable("cullify.menu.option.target_fps.tooltip");
+                activeTooltipImpact = Component.translatable("cullify.menu.tooltip.performance.none");
+                activeTooltipColor = 0xFF3498DB;
+            }
+
+            // Card 7: Light-Aware Culling
+            int card7Y1 = startY + 180;
+            int card7Y2 = card7Y1 + 25;
+            boolean card7Hovered = inViewport && mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card7Y1 && mouseY <= card7Y2;
+            drawOptionCard(graphics, cardX1, card7Y1, cardX2, card7Y2, Component.translatable("cullify.menu.option.light_aware"), card7Hovered, false);
+            drawToggleSwitch(graphics, cardX1, card7Y1, cardX2, card7Y2, CullifyConfig.LIGHT_AWARE_CULLING.get());
+            if (card7Hovered) {
+                activeTooltipTitle = Component.translatable("cullify.menu.option.light_aware");
+                activeTooltipDesc = Component.translatable("cullify.menu.option.light_aware.tooltip");
+                activeTooltipImpact = Component.translatable("cullify.menu.tooltip.performance.low");
+                activeTooltipColor = 0xFFF1C40F;
+            }
+
+            graphics.disableScissor();
+
+            // Draw scrollbar outside the scissor bounds so it does not clip
+            drawScrollbar(graphics, centerX + 44, viewportY1, viewportY2, this.generalScroll, getMaxGeneralScroll(), 140);
+
             int pX1 = centerX + 50;
-            int pY1 = centerY - 60;
+            int pY1 = centerY - 75;
             int pX2 = mainX2 - 15;
-            int pY2 = centerY + 55;
+            int pY2 = centerY + 88;
             
             graphics.fill(pX1, pY1, pX2, pY2, 0x15000000);
             graphics.fill(pX1, pY1, pX2, pY1 + 1, 0x22FFFFFF);
@@ -542,8 +625,8 @@ public class CullifyConfigScreen extends Screen {
             }
         }
 
-        int doneX1 = centerX - 50;
-        int doneX2 = centerX + 50;
+        int doneX1 = centerX - 80;
+        int doneX2 = centerX + 20;
         int doneY1 = centerY + 70;
         int doneY2 = centerY + 85;
         boolean doneHovered = mouseX >= doneX1 && mouseX <= doneX2 && mouseY >= doneY1 && mouseY <= doneY2;
@@ -580,8 +663,8 @@ public class CullifyConfigScreen extends Screen {
             return true;
         }
 
-        int doneX1 = centerX - 50;
-        int doneX2 = centerX + 50;
+        int doneX1 = centerX - 80;
+        int doneX2 = centerX + 20;
         int doneY1 = centerY + 70;
         int doneY2 = centerY + 85;
         if (mouseX >= doneX1 && mouseX <= doneX2 && mouseY >= doneY1 && mouseY <= doneY2) {
@@ -594,44 +677,83 @@ public class CullifyConfigScreen extends Screen {
             int cardX1 = centerX - 95;
             int cardX2 = centerX + 40;
             
-            int card1Y1 = centerY - 60;
-            int card1Y2 = centerY - 35;
-            if (mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card1Y1 && mouseY <= card1Y2) {
-                CullifyConfig.ENABLED.set(!CullifyConfig.ENABLED.get());
-                onConfigChange();
-                this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
-                return true;
-            }
+            // Only process option clicks if they occur within the scrollable viewport Y limits
+            if (mouseY >= centerY - 75 && mouseY <= centerY + 65) {
+                int startY = centerY - 75 - this.generalScroll;
 
-            int card2Y1 = centerY - 30;
-            int card2Y2 = centerY - 5;
-            if (mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card2Y1 && mouseY <= card2Y2) {
-                CullifyConfig.DEBUG_MODE.set(!CullifyConfig.DEBUG_MODE.get());
-                onConfigChange();
-                this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
-                return true;
-            }
+                // Card 1: Enabled
+                int card1Y1 = startY;
+                int card1Y2 = card1Y1 + 25;
+                if (mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card1Y1 && mouseY <= card1Y2) {
+                    CullifyConfig.ENABLED.set(!CullifyConfig.ENABLED.get());
+                    onConfigChange();
+                    this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                    return true;
+                }
 
-            int card3Y1 = centerY + 5;
-            int card3Y2 = centerY + 30;
-            if (mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card3Y1 && mouseY <= card3Y2) {
-                this.activeSlider = 3;
-                updateSliderValue(mouseX);
-                this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
-                return true;
-            }
+                // Card 2: Debug HUD
+                int card2Y1 = startY + 30;
+                int card2Y2 = card2Y1 + 25;
+                if (mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card2Y1 && mouseY <= card2Y2) {
+                    CullifyConfig.DEBUG_MODE.set(!CullifyConfig.DEBUG_MODE.get());
+                    onConfigChange();
+                    this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                    return true;
+                }
 
-            int card4Y1 = centerY + 40;
-            int card4Y2 = centerY + 65;
-            if (mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card4Y1 && mouseY <= card4Y2) {
-                CullifyConfig.CullingShape current = CullifyConfig.CULLING_SHAPE.get();
-                CullifyConfig.CullingShape[] values = CullifyConfig.CullingShape.values();
-                int nextIdx = (current.ordinal() + 1) % values.length;
-                CullifyConfig.CullingShape next = values[nextIdx];
-                CullifyConfig.CULLING_SHAPE.set(next);
-                onConfigChange();
-                this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
-                return true;
+                // Card 3: LOD Density
+                int card3Y1 = startY + 60;
+                int card3Y2 = card3Y1 + 25;
+                if (mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card3Y1 && mouseY <= card3Y2) {
+                    this.activeSlider = 3;
+                    updateSliderValue(mouseX);
+                    this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                    return true;
+                }
+
+                // Card 4: Culling Shape
+                int card4Y1 = startY + 90;
+                int card4Y2 = card4Y1 + 25;
+                if (mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card4Y1 && mouseY <= card4Y2) {
+                    CullifyConfig.CullingShape current = CullifyConfig.CULLING_SHAPE.get();
+                    CullifyConfig.CullingShape[] values = CullifyConfig.CullingShape.values();
+                    int nextIdx = (current.ordinal() + 1) % values.length;
+                    CullifyConfig.CullingShape next = values[nextIdx];
+                    CullifyConfig.CULLING_SHAPE.set(next);
+                    onConfigChange();
+                    this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                    return true;
+                }
+
+                // Card 5: Smart Scale
+                int card5Y1 = startY + 120;
+                int card5Y2 = card5Y1 + 25;
+                if (mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card5Y1 && mouseY <= card5Y2) {
+                    CullifyConfig.SMART_SCALE.set(!CullifyConfig.SMART_SCALE.get());
+                    onConfigChange();
+                    this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                    return true;
+                }
+
+                // Card 6: Target FPS
+                int card6Y1 = startY + 150;
+                int card6Y2 = card6Y1 + 25;
+                if (mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card6Y1 && mouseY <= card6Y2 && CullifyConfig.SMART_SCALE.get()) {
+                    this.activeSlider = 4;
+                    updateSliderValue(mouseX);
+                    this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                    return true;
+                }
+
+                // Card 7: Light-Aware Culling
+                int card7Y1 = startY + 180;
+                int card7Y2 = card7Y1 + 25;
+                if (mouseX >= cardX1 && mouseX <= cardX2 && mouseY >= card7Y1 && mouseY <= card7Y2) {
+                    CullifyConfig.LIGHT_AWARE_CULLING.set(!CullifyConfig.LIGHT_AWARE_CULLING.get());
+                    onConfigChange();
+                    this.minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                    return true;
+                }
             }
         } else if (currentTab == 1) {
             int cardX1 = centerX - 95;
@@ -740,6 +862,14 @@ public class CullifyConfigScreen extends Screen {
             val = Math.clamp((val / 5) * 5, 0, 100);
             CullifyConfig.LOD_DENSITY.set(val);
             onConfigChange();
+        } else if (this.activeSlider == 4) { // target FPS
+            if (CullifyConfig.SMART_SCALE.get()) {
+                double pct = (mouseX - cardX1) / cardW;
+                int val = 30 + (int) (pct * (240 - 30));
+                val = Math.clamp((val / 10) * 10, 30, 240);
+                CullifyConfig.TARGET_FPS.set(val);
+                onConfigChange();
+            }
         }
     }
 
@@ -769,6 +899,21 @@ public class CullifyConfigScreen extends Screen {
         int glowColor = ((int) (150 * pulse) << 24) | 0x2ECC71;
         graphics.fill(handleX - handleW / 2 - 1, trackY - handleH / 2 - 1, handleX - handleW / 2, trackY + handleH / 2 + 2, glowColor);
         graphics.fill(handleX + handleW / 2 + 1, trackY - handleH / 2 - 1, handleX + handleW / 2 + 2, trackY + handleH / 2 + 2, glowColor);
+    }
+
+    private void drawScrollbar(GuiGraphics graphics, int x, int y1, int y2, int currentScroll, int maxScroll, int viewportHeight) {
+        if (maxScroll <= 0) return;
+        
+        // Draw track
+        graphics.fill(x, y1, x + 2, y2, 0x11FFFFFF);
+        
+        // Calculate thumb size and position
+        int trackHeight = y2 - y1;
+        int thumbHeight = Math.max(15, (int) ((double) viewportHeight / (viewportHeight + maxScroll) * trackHeight));
+        int thumbY = y1 + (int) ((double) currentScroll / maxScroll * (trackHeight - thumbHeight));
+        
+        // Draw thumb (neon green matching design)
+        graphics.fill(x, thumbY, x + 2, thumbY + thumbHeight, 0xFF2ECC71);
     }
 
     private void drawOptionCardBackground(GuiGraphics graphics, int x1, int y1, int x2, int y2, boolean isHovered) {

@@ -50,5 +50,11 @@
   "cullify.menu.option.grass": "Скрывать траву",
   "cullify.menu.option.flowers": "Скрывать цветы",
   "cullify.menu.option.other": "Скрывать прочее",
-  "cullify.menu.slider.distance": "Дистанция"
+  "cullify.menu.slider.distance": "Дистанция",
+  "cullify.menu.option.smart_scale": "Умное масштабирование",
+  "cullify.menu.option.smart_scale.tooltip": "Автоматически уменьшает дистанции отсечения при падении FPS ниже цели. Постепенно восстанавливает их при стабилизации FPS.",
+  "cullify.menu.option.target_fps": "Целевой FPS",
+  "cullify.menu.option.target_fps.tooltip": "Порог FPS для умного масштабирования. При падении ниже этого значения дистанции отсечения будут уменьшены.",
+  "cullify.menu.option.light_aware": "Отсечение по освещению",
+  "cullify.menu.option.light_aware.tooltip": "Уменьшает дистанции отсечения в тёмных местах (леса, пещеры, ночь). Невидимая в темноте растительность скрывается раньше, экономя GPU без визуального ущерба."
 }

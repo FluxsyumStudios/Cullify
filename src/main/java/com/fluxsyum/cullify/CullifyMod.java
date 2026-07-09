@@ -59,6 +59,25 @@ public class CullifyMod {
     public static volatile CullifyConfig.CullingShape cachedShape = CullifyConfig.CullingShape.SPHERE;
     /** LOD density threshold: 0 = cull all, 100 = cull nothing at near-border (disabled) */
     public static volatile int     cachedLodDensity    = 100;
+    /** Smart Scale: whether to auto-reduce distances when FPS drops */
+    public static volatile boolean cachedSmartScale    = false;
+    /** Target FPS for the Smart Scale system */
+    public static volatile int     cachedTargetFps     = 60;
+    /** Light-Aware Culling: whether to reduce distances in dark areas */
+    public static volatile boolean cachedLightAware    = false;
+
+    /**
+     * Current Smart Scale multiplier in [0.5, 1.0].
+     * Written by the main thread every second; read by background rebuild thread.
+     */
+    public static volatile float smartScaleFactor = 1.0f;
+
+    /**
+     * Per-section light importance factor, in [0.3, 1.0].
+     * Key = SectionPos.asLong(sx, sy, sz). Written by the background classifier thread.
+     */
+    public static final java.util.concurrent.ConcurrentHashMap<Long, Float> sectionLightFactors =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     public static volatile boolean benchmarkBypass = false;
 
@@ -67,15 +86,18 @@ public class CullifyMod {
      * This must only be called from the main client thread.
      */
     public static void updateConfigCache() {
-        cachedEnabled     = CullifyConfig.ENABLED.get() && !benchmarkBypass;
-        cachedCullGrass   = CullifyConfig.CULL_GRASS.get();
-        cachedCullFlowers = CullifyConfig.CULL_FLOWERS.get();
-        cachedCullOther   = CullifyConfig.CULL_OTHER_PLANTS.get();
-        cachedGrassDist   = CullifyConfig.GRASS_CULL_DISTANCE.get();
-        cachedFlowerDist  = CullifyConfig.FLOWER_CULL_DISTANCE.get();
-        cachedOtherDist   = CullifyConfig.OTHER_PLANT_CULL_DISTANCE.get();
-        cachedShape       = CullifyConfig.CULLING_SHAPE.get();
-        cachedLodDensity  = CullifyConfig.LOD_DENSITY.get();
+        cachedEnabled       = CullifyConfig.ENABLED.get() && !benchmarkBypass;
+        cachedCullGrass     = CullifyConfig.CULL_GRASS.get();
+        cachedCullFlowers   = CullifyConfig.CULL_FLOWERS.get();
+        cachedCullOther     = CullifyConfig.CULL_OTHER_PLANTS.get();
+        cachedGrassDist     = CullifyConfig.GRASS_CULL_DISTANCE.get();
+        cachedFlowerDist    = CullifyConfig.FLOWER_CULL_DISTANCE.get();
+        cachedOtherDist     = CullifyConfig.OTHER_PLANT_CULL_DISTANCE.get();
+        cachedShape         = CullifyConfig.CULLING_SHAPE.get();
+        cachedLodDensity    = CullifyConfig.LOD_DENSITY.get();
+        cachedSmartScale    = CullifyConfig.SMART_SCALE.get();
+        cachedTargetFps     = CullifyConfig.TARGET_FPS.get();
+        cachedLightAware    = CullifyConfig.LIGHT_AWARE_CULLING.get();
     }
 
     // -----------------------------------------------------------------------
@@ -361,13 +383,15 @@ public class CullifyMod {
     // Cull distance helpers — now use config cache
     // -----------------------------------------------------------------------
     public static double getCullDistance(PlantType type) {
+        // Apply Smart Scale multiplier if enabled (ranges from 0.5 to 1.0)
+        float scale = cachedSmartScale ? smartScaleFactor : 1.0f;
         switch (type) {
             case GRASS:
-                return cachedCullGrass   ? cachedGrassDist  : -1;
+                return cachedCullGrass   ? cachedGrassDist  * scale : -1;
             case FLOWER:
-                return cachedCullFlowers ? cachedFlowerDist : -1;
+                return cachedCullFlowers ? cachedFlowerDist * scale : -1;
             case OTHER:
-                return cachedCullOther   ? cachedOtherDist  : -1;
+                return cachedCullOther   ? cachedOtherDist  * scale : -1;
             default:
                 return -1;
         }
@@ -441,6 +465,18 @@ public class CullifyMod {
         double limit = getCullDistance(type);
         if (limit < 0) {
             return false;
+        }
+
+        // Light-Aware Culling: scale down the effective cull limit in dark sections
+        if (cachedLightAware) {
+            int sx = x >> 4;
+            int sy = y >> 4;
+            int sz = z >> 4;
+            long secKey = net.minecraft.core.SectionPos.asLong(sx, sy, sz);
+            Float lightFactor = sectionLightFactors.get(secKey);
+            if (lightFactor != null) {
+                limit *= lightFactor;
+            }
         }
 
         double dx = x + 0.5 - playerX;

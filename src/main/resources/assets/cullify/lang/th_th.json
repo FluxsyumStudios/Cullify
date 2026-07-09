@@ -50,5 +50,11 @@
   "cullify.menu.option.grass": "ซ่อนหญ้า",
   "cullify.menu.option.flowers": "ซ่อนดอกไม้",
   "cullify.menu.option.other": "ซ่อนสาหร่าย/อื่นๆ",
-  "cullify.menu.slider.distance": "ระยะทาง"
+  "cullify.menu.slider.distance": "ระยะทาง",
+  "cullify.menu.option.smart_scale": "สเกลอัจฉริยะ",
+  "cullify.menu.option.smart_scale.tooltip": "ลดระยะการคัลลิงโดยอัตโนมัติเมื่อ FPS ต่ำกว่าเป้าหมาย และค่อยๆ คืนค่าเมื่อ FPS ฟื้นตัว",
+  "cullify.menu.option.target_fps": "FPS เป้าหมาย",
+  "cullify.menu.option.target_fps.tooltip": "ค่า FPS ที่ใช้โดยสเกลอัจฉริยะ หาก FPS ต่ำกว่านี้ ระยะคัลลิงจะลดลง",
+  "cullify.menu.option.light_aware": "คัลลิงตามแสง",
+  "cullify.menu.option.light_aware.tooltip": "ลดระยะคัลลิงในพื้นที่มืด (ป่า ถ้ำ กลางคืน) พืชพรรณที่มองไม่เห็นในความมืดจะถูกซ่อนเร็วขึ้น ประหยัด GPU โดยไม่กระทบภาพ"
 }

@@ -50,5 +50,11 @@
   "cullify.menu.option.grass": "剔除草地",
   "cullify.menu.option.flowers": "剔除花卉",
   "cullify.menu.option.other": "剔除其他",
-  "cullify.menu.slider.distance": "距離"
+  "cullify.menu.slider.distance": "距離",
+  "cullify.menu.option.smart_scale": "智慧縮放",
+  "cullify.menu.option.smart_scale.tooltip": "當FPS低於目標值時自動縮小剔除距離。FPS恢復後逐漸還原。",
+  "cullify.menu.option.target_fps": "目標FPS",
+  "cullify.menu.option.target_fps.tooltip": "智慧縮放使用的FPS閾值。當FPS低於此值時，剔除距離將縮小。",
+  "cullify.menu.option.light_aware": "光照感知剔除",
+  "cullify.menu.option.light_aware.tooltip": "在黑暗區域（森林、洞穴、夜晚）中縮小剔除距離。在黑暗中不可見的植被會更早被隱藏，在不影響視覺效果的情況下節省GPU。"
 }
