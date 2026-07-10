@@ -125,6 +125,20 @@ public class ClientEventHandler {
             return;
         }
 
+        // Deferred reload check: only reload chunks when no screen is open (game is unpaused)
+        if (CullifyMod.reloadRequired && mc.screen == null) {
+            CullifyMod.reloadRequired = false;
+            if (mc.levelRenderer != null) {
+                mc.levelRenderer.allChanged();
+                // Second reload queued for the next frame to flush Sodium's async queue
+                mc.execute(() -> {
+                    if (mc.levelRenderer != null) {
+                        mc.levelRenderer.allChanged();
+                    }
+                });
+            }
+        }
+
         // Open config menu on key mapping press
         if (com.fluxsyum.cullify.client.ClientModBusSubscriber.configKeyMapping != null &&
             com.fluxsyum.cullify.client.ClientModBusSubscriber.configKeyMapping.consumeClick()) {

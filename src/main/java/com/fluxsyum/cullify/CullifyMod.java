@@ -287,38 +287,16 @@ public class CullifyMod {
         }
     }
 
-    private static volatile boolean reloadScheduled = false;
+    public static volatile boolean reloadRequired = false;
 
     /**
-     * Forces a full re-render of all visible sections.
-     *
-     * We fire two back-to-back reloads separated by 1 render tick to cover
-     * both vanilla (LevelRenderer) and Sodium (which processes its own section
-     * queue asynchronously). Without the second reload, disabling culling while
-     * Sodium is installed often leaves previously-culled vegetation invisible
-     * because Sodium's section pipeline re-uses stale compiled geometry.
+     * Flags that a full re-render of all visible sections is required.
+     * The actual reload is deferred until the next client tick when no screen
+     * is open, preventing rendering issues if the config is changed while the
+     * game is paused.
      */
     public static void scheduleWorldReload() {
-        if (reloadScheduled) return;
-        reloadScheduled = true;
-        Minecraft mc = Minecraft.getInstance();
-        if (mc != null) {
-            mc.execute(() -> {
-                reloadScheduled = false;
-                if (mc.levelRenderer != null) {
-                    mc.levelRenderer.allChanged();
-                }
-                // Second reload one tick later so Sodium's async section
-                // compiler flushes the stale geometry built before this
-                // config change. Without this, vegetation hidden by culling
-                // stays invisible even after cachedEnabled becomes false.
-                mc.execute(() -> {
-                    if (mc.levelRenderer != null) {
-                        mc.levelRenderer.allChanged();
-                    }
-                });
-            });
-        }
+        reloadRequired = true;
     }
 
     // -----------------------------------------------------------------------
