@@ -86,6 +86,7 @@ public class CullifyMod {
      * This must only be called from the main client thread.
      */
     public static void updateConfigCache() {
+        boolean wasEnabled = cachedEnabled;
         cachedEnabled       = CullifyConfig.ENABLED.get() && !benchmarkBypass;
         cachedCullGrass     = CullifyConfig.CULL_GRASS.get();
         cachedCullFlowers   = CullifyConfig.CULL_FLOWERS.get();
@@ -98,6 +99,13 @@ public class CullifyMod {
         cachedSmartScale    = CullifyConfig.SMART_SCALE.get();
         cachedTargetFps     = CullifyConfig.TARGET_FPS.get();
         cachedLightAware    = CullifyConfig.LIGHT_AWARE_CULLING.get();
+
+        // If culling was just disabled, immediately flush the voxel grid to
+        // all-visible so any grid lookup between this call and the next full
+        // rebuild returns "keep block" instead of the stale culled geometry.
+        if (wasEnabled && !cachedEnabled) {
+            java.util.Arrays.fill(voxelGrid, true);
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -281,6 +289,15 @@ public class CullifyMod {
 
     private static volatile boolean reloadScheduled = false;
 
+    /**
+     * Forces a full re-render of all visible sections.
+     *
+     * We fire two back-to-back reloads separated by 1 render tick to cover
+     * both vanilla (LevelRenderer) and Sodium (which processes its own section
+     * queue asynchronously). Without the second reload, disabling culling while
+     * Sodium is installed often leaves previously-culled vegetation invisible
+     * because Sodium's section pipeline re-uses stale compiled geometry.
+     */
     public static void scheduleWorldReload() {
         if (reloadScheduled) return;
         reloadScheduled = true;
@@ -291,6 +308,15 @@ public class CullifyMod {
                 if (mc.levelRenderer != null) {
                     mc.levelRenderer.allChanged();
                 }
+                // Second reload one tick later so Sodium's async section
+                // compiler flushes the stale geometry built before this
+                // config change. Without this, vegetation hidden by culling
+                // stays invisible even after cachedEnabled becomes false.
+                mc.execute(() -> {
+                    if (mc.levelRenderer != null) {
+                        mc.levelRenderer.allChanged();
+                    }
+                });
             });
         }
     }
