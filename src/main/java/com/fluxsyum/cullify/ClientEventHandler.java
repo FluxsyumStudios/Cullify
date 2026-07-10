@@ -110,6 +110,27 @@ public class ClientEventHandler {
     @SubscribeEvent
     public static void onRenderFrame(net.neoforged.neoforge.client.event.RenderFrameEvent.Pre event) {
         com.fluxsyum.cullify.benchmark.BenchmarkManager.recordFrame();
+
+        // Lock camera rotation during benchmark to perform identical cinematic rotation
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player != null && com.fluxsyum.cullify.benchmark.BenchmarkManager.isRunning()) {
+            com.fluxsyum.cullify.benchmark.BenchmarkManager.State bState = com.fluxsyum.cullify.benchmark.BenchmarkManager.getState();
+            float currentYaw = com.fluxsyum.cullify.benchmark.BenchmarkManager.startYaw;
+            
+            if (bState == com.fluxsyum.cullify.benchmark.BenchmarkManager.State.RUNNING_WITHOUT ||
+                bState == com.fluxsyum.cullify.benchmark.BenchmarkManager.State.RUNNING_WITH) {
+                long elapsed = System.currentTimeMillis() - com.fluxsyum.cullify.benchmark.BenchmarkManager.getPhaseStartTimeMillis();
+                long duration = com.fluxsyum.cullify.benchmark.BenchmarkManager.getPhaseDurationMillis();
+                float progress = duration > 0 ? (float) elapsed / duration : 0.0f;
+                progress = Math.min(1.0f, Math.max(0.0f, progress));
+                currentYaw = com.fluxsyum.cullify.benchmark.BenchmarkManager.startYaw + progress * 360.0f;
+            }
+            
+            mc.player.setYRot(currentYaw);
+            mc.player.yRotO = currentYaw;
+            mc.player.setXRot(0.0f);
+            mc.player.xRotO = 0.0f;
+        }
     }
 
     @SubscribeEvent
@@ -123,6 +144,17 @@ public class ClientEventHandler {
             initialized = false;
             sectionStates.clear();
             return;
+        }
+
+        // Lock position and reset velocity during benchmark to keep player in the same spot
+        if (com.fluxsyum.cullify.benchmark.BenchmarkManager.isRunning()) {
+            player.setPos(com.fluxsyum.cullify.benchmark.BenchmarkManager.startX,
+                           com.fluxsyum.cullify.benchmark.BenchmarkManager.startY,
+                           com.fluxsyum.cullify.benchmark.BenchmarkManager.startZ);
+            player.setDeltaMovement(0, 0, 0);
+            player.xxa = 0.0f;
+            player.yya = 0.0f;
+            player.zza = 0.0f;
         }
 
         // Deferred reload check: only reload chunks when no screen is open (game is unpaused)

@@ -27,9 +27,18 @@ public class BenchmarkManager {
     public static final LongAdder cacheRebuilds = new LongAdder();
     public static final LongAdder cacheRebuildTimeNanos = new LongAdder();
 
+    public static double startX = 0;
+    public static double startY = 0;
+    public static double startZ = 0;
+    public static float startYaw = 0;
+
     private static long phaseStartTimeMillis = 0;
     private static long phaseDurationMillis = 0;
     private static long lastFrameTimeNanos = 0;
+
+    public static long getPhaseStartTimeMillis() { return phaseStartTimeMillis; }
+    public static long getPhaseDurationMillis() { return phaseDurationMillis; }
+    public static State getState() { return state; }
 
     private static final List<Double> currentPhaseFrameTimes = new ArrayList<>();
     private static final List<Double> withoutFrameTimes = new ArrayList<>();
@@ -46,9 +55,17 @@ public class BenchmarkManager {
         }
         lastFrameTimeNanos = 0;
 
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player != null) {
+            startX = mc.player.getX();
+            startY = mc.player.getY();
+            startZ = mc.player.getZ();
+            startYaw = mc.player.getYRot();
+        }
+
         sendMessage(Component.literal("§e[Cullify] Starting Comparison Benchmark..."));
         sendMessage(Component.literal("§7The benchmark runs in two phases of " + seconds + " seconds each."));
-        sendMessage(Component.literal("§7Keep your player still during the benchmark."));
+        sendMessage(Component.literal("§7The camera will automatically rotate to perform a fair comparison."));
 
         startPhase(State.WARMUP_WITHOUT);
     }
@@ -174,7 +191,14 @@ public class BenchmarkManager {
         }
         state = State.IDLE;
 
-        BenchmarkReportWriter.saveComparisonReport(withoutFrameTimes, withFrameTimes);
+        java.io.File file = BenchmarkReportWriter.saveComparisonReport(withoutFrameTimes, withFrameTimes);
+
+        Minecraft mc = Minecraft.getInstance();
+        mc.execute(() -> {
+            mc.setScreen(new com.fluxsyum.cullify.client.BenchmarkResultsScreen(
+                null, withoutFrameTimes, withFrameTimes, file
+            ));
+        });
     }
 
     private static void resetStats() {
