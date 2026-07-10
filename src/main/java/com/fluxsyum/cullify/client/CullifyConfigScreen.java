@@ -323,10 +323,6 @@ public class CullifyConfigScreen extends Screen {
         int kx = value ? (tx + trackW - knobSize) : tx;
         int ky = ty + (trackH - knobSize) / 2;
         graphics.fill(kx, ky, kx + knobSize, ky + knobSize, value ? 0xFF2ECC71 : 0xFFE74C3C);
-        
-        String txt = value ? "ON" : "OFF";
-        int txtColor = value ? 0xFF2ECC71 : 0xFFE74C3C;
-        graphics.text(this.font, txt, tx - 6 - this.font.width(txt), y1 + (height - 8) / 2, txtColor, false);
     }
 
     private void drawOptionCard(GuiGraphicsExtractor graphics, int x1, int y1, int x2, int y2, Component title, boolean isHovered, boolean centered) {
