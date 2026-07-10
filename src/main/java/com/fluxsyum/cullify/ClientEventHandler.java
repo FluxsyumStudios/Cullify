@@ -83,6 +83,12 @@ public class ClientEventHandler {
     private static int lastFlowerDist = 48;
     private static int lastOtherDist = 32;
     private static CullifyConfig.CullingShape lastCullingShape = CullifyConfig.CullingShape.SPHERE;
+    private static boolean lastSmartScale = false;
+    private static int lastTargetFps = 60;
+    private static boolean lastLightAware = false;
+
+    /** Tick counter for Smart Scale FPS adjustment (runs every 20 ticks = 1 second) */
+    private static int smartScaleTickCounter = 0;
 
     /**
      * Thread-safe map from packed section position to its classified state.
@@ -159,7 +165,6 @@ public class ClientEventHandler {
             return;
         }
 
-        // Detect config changes each tick to trigger re-renders
         boolean enabled      = CullifyConfig.ENABLED.get();
         boolean cullGrass    = CullifyConfig.CULL_GRASS.get();
         boolean cullFlowers  = CullifyConfig.CULL_FLOWERS.get();
@@ -168,6 +173,9 @@ public class ClientEventHandler {
         int     flowerDist   = CullifyConfig.FLOWER_CULL_DISTANCE.get();
         int     otherDist    = CullifyConfig.OTHER_PLANT_CULL_DISTANCE.get();
         CullifyConfig.CullingShape cullingShape = CullifyConfig.CULLING_SHAPE.get();
+        boolean smartScale   = CullifyConfig.SMART_SCALE.get();
+        int     targetFps    = CullifyConfig.TARGET_FPS.get();
+        boolean lightAware   = CullifyConfig.LIGHT_AWARE_CULLING.get();
 
         if (enabled != lastEnabled
                 || cullGrass    != lastCullGrass
@@ -176,7 +184,10 @@ public class ClientEventHandler {
                 || grassDist    != lastGrassDist
                 || flowerDist   != lastFlowerDist
                 || otherDist    != lastOtherDist
-                || cullingShape != lastCullingShape) {
+                || cullingShape != lastCullingShape
+                || smartScale   != lastSmartScale
+                || targetFps    != lastTargetFps
+                || lightAware   != lastLightAware) {
             lastEnabled      = enabled;
             lastCullGrass    = cullGrass;
             lastCullFlowers  = cullFlowers;
@@ -185,12 +196,45 @@ public class ClientEventHandler {
             lastFlowerDist   = flowerDist;
             lastOtherDist    = otherDist;
             lastCullingShape = cullingShape;
+            lastSmartScale   = smartScale;
+            lastTargetFps    = targetFps;
+            lastLightAware   = lightAware;
             sectionStates.clear();
+            CullifyMod.sectionLightFactors.clear();
             scheduleDebouncedSave();
             CullifyMod.updateConfigCache();
             CullifyMod.incrementConfigVersion();
             CullifyMod.voxelGridDirty = true;
             CullifyMod.scheduleWorldReload();
+        }
+
+        // Smart Scale: adjust the distance multiplier every 20 ticks based on current FPS
+        if (CullifyMod.cachedSmartScale) {
+            smartScaleTickCounter++;
+            if (smartScaleTickCounter >= 20) {
+                smartScaleTickCounter = 0;
+                int currentFps = mc.getFps();
+                int target = CullifyMod.cachedTargetFps;
+                float factor = CullifyMod.smartScaleFactor;
+                if (currentFps < target) {
+                    // FPS below target: shrink distances (min 0.5)
+                    factor = Math.max(0.5f, factor - 0.05f);
+                } else if (currentFps >= target + 10) {
+                    // FPS comfortably above target: expand distances back (max 1.0)
+                    factor = Math.min(1.0f, factor + 0.05f);
+                }
+                if (factor != CullifyMod.smartScaleFactor) {
+                    CullifyMod.smartScaleFactor = factor;
+                    CullifyMod.voxelGridDirty = true;
+                }
+            }
+        } else {
+            // Reset factor when Smart Scale is disabled
+            if (CullifyMod.smartScaleFactor != 1.0f) {
+                CullifyMod.smartScaleFactor = 1.0f;
+                CullifyMod.voxelGridDirty = true;
+                smartScaleTickCounter = 0;
+            }
         }
 
         // Benchmark tick update
@@ -464,6 +508,32 @@ public class ClientEventHandler {
                     if (rebuild) {
                         dirtyPositions.add(posLong);
                     }
+
+                    // Light-Aware Culling: compute section light importance factor
+                    if (CullifyMod.cachedLightAware) {
+                        try {
+                            // Sample brightness at the center block of this section
+                            int cx = (sx << 4) + 8;
+                            int cy = (sy << 4) + 8;
+                            int cz = (sz << 4) + 8;
+                            net.minecraft.core.BlockPos centerPos = new net.minecraft.core.BlockPos(cx, cy, cz);
+                            int sky   = level.getBrightness(net.minecraft.world.level.LightLayer.SKY, centerPos);
+                            int block = level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, centerPos);
+                            // Weight sky light more heavily — a single torch should not fully restore distance
+                            float importance = (0.75f * sky + 0.25f * block) / 15.0f;
+                            // Clamp to [0.3, 1.0]: fully dark = 30% of configured distance; full sun = 100%
+                            float lightFactor = Math.clamp(0.3f + 0.7f * importance, 0.3f, 1.0f);
+                            Float existing = CullifyMod.sectionLightFactors.get(posLong);
+                            if (existing == null || Math.abs(existing - lightFactor) > 0.04f) {
+                                CullifyMod.sectionLightFactors.put(posLong, lightFactor);
+                                // Trigger a re-render so the new effective radius takes effect
+                                if (!rebuild) dirtyPositions.add(posLong);
+                            }
+                        } catch (Exception ignored) {
+                            // Section may not be fully loaded — skip safely
+                        }
+                    }
+
                 }
             }
         }
@@ -471,6 +541,10 @@ public class ClientEventHandler {
         // Evict stale entries (safe on ConcurrentHashMap)
         if (currentTick % 20 == 0) {
             sectionStates.entrySet().removeIf(entry -> (currentTick - entry.getValue().lastSeenTick) > 20);
+            // Also evict light factors for sections no longer tracked
+            if (CullifyMod.cachedLightAware) {
+                CullifyMod.sectionLightFactors.keySet().retainAll(sectionStates.keySet());
+            }
         }
 
         // Dispatch dirty-marking to the main/render thread — invokeSetSectionDirty is not thread-safe

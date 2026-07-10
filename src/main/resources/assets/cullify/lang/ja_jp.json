@@ -51,5 +51,14 @@
   "cullify.menu.option.flowers": "花カリング",
   "cullify.menu.option.other": "その他カリング",
   "cullify.menu.slider.distance": "距離",
+<<<<<<< HEAD
   "key.category.cullify.cullify": "Cullify"
+=======
+  "cullify.menu.option.smart_scale": "スマートスケール",
+  "cullify.menu.option.smart_scale.tooltip": "FPSが目標値を下回るとカリング距離を自動的に縮小します。FPSが回復すると徐々に元に戻します。",
+  "cullify.menu.option.target_fps": "目標FPS",
+  "cullify.menu.option.target_fps.tooltip": "スマートスケールが使用するFPSのしきい値。この値を下回るとカリング距離が縮小されます。",
+  "cullify.menu.option.light_aware": "光感知カリング",
+  "cullify.menu.option.light_aware.tooltip": "暗い場所（森、洞窟、夜間）ではカリング距離を縮小します。暗闇で見えない植生を早めに非表示にし、視覚的影響なしにGPUを節約します。"
 }
+

@@ -51,5 +51,14 @@
   "cullify.menu.option.flowers": "Ocultar Flores",
   "cullify.menu.option.other": "Ocultar Outros",
   "cullify.menu.slider.distance": "Distância",
+<<<<<<< HEAD
   "key.category.cullify.cullify": "Cullify"
+=======
+  "cullify.menu.option.smart_scale": "Smart Scale",
+  "cullify.menu.option.smart_scale.tooltip": "Reduz automaticamente as distâncias de culling quando os FPS caem abaixo do alvo. Restaura gradualmente quando os FPS se recuperam.",
+  "cullify.menu.option.target_fps": "FPS Alvo",
+  "cullify.menu.option.target_fps.tooltip": "Limite de FPS utilizado pelo Smart Scale. Quando os FPS caem abaixo deste valor, as distâncias de culling são reduzidas.",
+  "cullify.menu.option.light_aware": "Culling por Iluminação",
+  "cullify.menu.option.light_aware.tooltip": "Reduz as distâncias de culling em zonas escuras (florestas, cavernas, noite). A vegetação invisível é ocultada mais cedo, poupando GPU sem impacto visual."
 }
+

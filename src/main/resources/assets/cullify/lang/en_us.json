@@ -51,5 +51,13 @@
   "cullify.menu.option.flowers": "Cull Flowers",
   "cullify.menu.option.other": "Cull Other/Algae",
   "cullify.menu.slider.distance": "Distance",
-  "key.category.cullify.cullify": "Cullify"
+  "key.category.cullify.cullify": "Cullify",
+  "cullify.menu.option.smart_scale": "Smart Scale",
+  "cullify.menu.option.smart_scale.tooltip": "Automatically reduces culling distances when FPS drops below the target. Restores them gradually when FPS recovers.",
+  "cullify.menu.option.target_fps": "Target FPS",
+  "cullify.menu.option.target_fps.tooltip": "The FPS threshold used by Smart Scale. If current FPS drops below this, culling distances will shrink to recover performance.",
+  "cullify.menu.option.light_aware": "Light-Aware Culling",
+  "cullify.menu.option.light_aware.tooltip": "Shrinks culling distances in dark areas (forests, caves, night). Vegetation invisible in the dark is culled much sooner, saving GPU with no visual impact."
 }
+
+

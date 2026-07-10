@@ -25,6 +25,9 @@ public class CullifyConfig {
     public static final ModConfigSpec.IntValue OTHER_PLANT_CULL_DISTANCE;
     public static final ModConfigSpec.BooleanValue DEBUG_MODE;
     public static final ModConfigSpec.IntValue LOD_DENSITY;
+    public static final ModConfigSpec.BooleanValue SMART_SCALE;
+    public static final ModConfigSpec.IntValue TARGET_FPS;
+    public static final ModConfigSpec.BooleanValue LIGHT_AWARE_CULLING;
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
@@ -72,6 +75,22 @@ public class CullifyConfig {
                         + "plants near the culling boundary using a deterministic hash — no flickering. "
                         + "50 = keep 50% of plants in the outer zone. Saves CPU at medium distances.")
                 .defineInRange("lodDensity", 100, 0, 100);
+
+        SMART_SCALE = builder
+                .comment("When enabled, automatically reduces culling distances when FPS drops below TARGET_FPS, "
+                        + "and slowly restores them when FPS recovers. Keeps frame rate stable in dense biomes.")
+                .define("smartScale", false);
+
+        TARGET_FPS = builder
+                .comment("Target frames per second for the Smart Scale system. "
+                        + "If current FPS falls below this, culling distances shrink to recover performance.")
+                .defineInRange("targetFps", 60, 30, 240);
+
+        LIGHT_AWARE_CULLING = builder
+                .comment("When enabled, culling distances shrink in dark areas (forests, caves, night) "
+                        + "proportionally to the ambient light level. Vegetation invisible in the dark is "
+                        + "culled much sooner, saving CPU and GPU with no visual impact.")
+                .define("lightAwareCulling", false);
 
         builder.pop();
         SPEC = builder.build();

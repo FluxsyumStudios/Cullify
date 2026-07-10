@@ -51,5 +51,14 @@
   "cullify.menu.option.flowers": "꽃 컬링",
   "cullify.menu.option.other": "기타 컬링",
   "cullify.menu.slider.distance": "거리",
+<<<<<<< HEAD
   "key.category.cullify.cullify": "Cullify"
+=======
+  "cullify.menu.option.smart_scale": "스마트 스케일",
+  "cullify.menu.option.smart_scale.tooltip": "FPS가 목표치 아래로 떨어지면 컬링 거리를 자동으로 줄입니다. FPS가 회복되면 점차 복원됩니다.",
+  "cullify.menu.option.target_fps": "목표 FPS",
+  "cullify.menu.option.target_fps.tooltip": "스마트 스케일에서 사용하는 FPS 임계값. 이 값 아래로 떨어지면 컬링 거리가 줄어듭니다.",
+  "cullify.menu.option.light_aware": "빛 감지 컬링",
+  "cullify.menu.option.light_aware.tooltip": "어두운 지역(숲, 동굴, 밤)에서 컬링 거리를 줄입니다. 어둠 속에서 보이지 않는 식생을 더 일찍 숨겨 시각적 영향 없이 GPU를 절약합니다."
 }
+
