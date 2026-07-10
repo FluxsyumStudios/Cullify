@@ -50,5 +50,6 @@
   "cullify.menu.option.grass": "Culling Grama",
   "cullify.menu.option.flowers": "Culling Flores",
   "cullify.menu.option.other": "Culling Outros",
-  "cullify.menu.slider.distance": "Distância"
+  "cullify.menu.slider.distance": "Distância",
+  "key.category.cullify.cullify": "Cullify"
 }

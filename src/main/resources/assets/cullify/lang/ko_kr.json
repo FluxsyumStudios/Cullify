@@ -50,5 +50,6 @@
   "cullify.menu.option.grass": "잔디 컬링",
   "cullify.menu.option.flowers": "꽃 컬링",
   "cullify.menu.option.other": "기타 컬링",
-  "cullify.menu.slider.distance": "거리"
+  "cullify.menu.slider.distance": "거리",
+  "key.category.cullify.cullify": "Cullify"
 }

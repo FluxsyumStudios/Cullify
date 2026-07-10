@@ -3,18 +3,18 @@ package com.fluxsyum.cullify.client;
 import com.fluxsyum.cullify.ClientEventHandler;
 import com.fluxsyum.cullify.CullifyConfig;
 import com.fluxsyum.cullify.CullifyMod;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.FormattedCharSequence;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 import java.util.List;
 
 public class CullifyConfigScreen extends Screen {
-    private static final ResourceLocation LOGO_TEXTURE = CullifyMod.LOGO;
+    private static final Identifier LOGO_TEXTURE = CullifyMod.LOGO;
     private final Screen parent;
     private int currentTab = 0; // 0 = General, 1 = Vegetation
     private float currentSin;
@@ -175,7 +175,7 @@ public class CullifyConfigScreen extends Screen {
         return 16;
     }
 
-    private void drawLine(GuiGraphics graphics, int x1, int y1, int x2, int y2, int color) {
+    private void drawLine(GuiGraphicsExtractor graphics, int x1, int y1, int x2, int y2, int color) {
         int dx = Math.abs(x2 - x1);
         int dy = Math.abs(y2 - y1);
         int sx = x1 < x2 ? 1 : -1;
@@ -196,7 +196,7 @@ public class CullifyConfigScreen extends Screen {
         }
     }
 
-    private void drawWireframe(GuiGraphics graphics, int cx, int cy, float[][] vertices, int[][] edges, int color) {
+    private void drawWireframe(GuiGraphicsExtractor graphics, int cx, int cy, float[][] vertices, int[][] edges, int color) {
         double angle = (System.currentTimeMillis() % 360000) / 1000.0 * 0.5;
         double bobbing = Math.sin(System.currentTimeMillis() * 0.002) * 3.0;
         int pCY = cy + (int) bobbing;
@@ -225,7 +225,7 @@ public class CullifyConfigScreen extends Screen {
         }
     }
 
-    private void drawGlowingRect(GuiGraphics graphics, int x1, int y1, int x2, int y2, int color) {
+    private void drawGlowingRect(GuiGraphicsExtractor graphics, int x1, int y1, int x2, int y2, int color) {
         int r = (color >> 16) & 0xFF;
         int g = (color >> 8) & 0xFF;
         int b = color & 0xFF;
@@ -255,7 +255,7 @@ public class CullifyConfigScreen extends Screen {
         graphics.fill(x2 + 1, y1 - 2, x2 + 2, y2 + 2, glowColor2);
     }
 
-    private void drawCustomTooltip(GuiGraphics graphics, Component title, Component description, Component impactLabel, int colorImpact, int x, int y) {
+    private void drawCustomTooltip(GuiGraphicsExtractor graphics, Component title, Component description, Component impactLabel, int colorImpact, int x, int y) {
         int maxWidth = 180;
         List<FormattedCharSequence> splitLines = this.font.split(description, maxWidth);
         
@@ -275,18 +275,18 @@ public class CullifyConfigScreen extends Screen {
         graphics.fill(tx, ty, tx + tooltipW, ty + tooltipH, 0xFF0B0C0E);
         drawGlowingRect(graphics, tx, ty, tx + tooltipW, ty + tooltipH, 0xFF2ECC71);
         
-        graphics.drawString(this.font, title, tx + 6, ty + 5, 0xFFFFFFFF, false);
+        graphics.text(this.font, title, tx + 6, ty + 5, 0xFFFFFFFF, false);
         
         for (int i = 0; i < splitLines.size(); i++) {
-            graphics.drawString(this.font, splitLines.get(i), tx + 6, ty + 15 + (i * 10), 0xFF888888, false);
+            graphics.text(this.font, splitLines.get(i), tx + 6, ty + 15 + (i * 10), 0xFF888888, false);
         }
         
         int impactY = ty + 15 + (splitLines.size() * 10);
-        graphics.drawString(this.font, Component.translatable("cullify.menu.tooltip.performance.impact"), tx + 6, impactY, 0xFF555555, false);
-        graphics.drawString(this.font, impactLabel, tx + 6 + this.font.width(Component.translatable("cullify.menu.tooltip.performance.impact")), impactY, colorImpact, false);
+        graphics.text(this.font, Component.translatable("cullify.menu.tooltip.performance.impact"), tx + 6, impactY, 0xFF555555, false);
+        graphics.text(this.font, impactLabel, tx + 6 + this.font.width(Component.translatable("cullify.menu.tooltip.performance.impact")), impactY, colorImpact, false);
     }
 
-    private void drawToggleSwitch(GuiGraphics graphics, int x1, int y1, int x2, int y2, boolean value) {
+    private void drawToggleSwitch(GuiGraphicsExtractor graphics, int x1, int y1, int x2, int y2, boolean value) {
         int height = y2 - y1;
         int trackW = 24;
         int trackH = 10;
@@ -302,22 +302,22 @@ public class CullifyConfigScreen extends Screen {
         
         String txt = value ? "ON" : "OFF";
         int txtColor = value ? 0xFF2ECC71 : 0xFFE74C3C;
-        graphics.drawString(this.font, txt, tx - 6 - this.font.width(txt), y1 + (height - 8) / 2, txtColor, false);
+        graphics.text(this.font, txt, tx - 6 - this.font.width(txt), y1 + (height - 8) / 2, txtColor, false);
     }
 
-    private void drawOptionCard(GuiGraphics graphics, int x1, int y1, int x2, int y2, Component title, boolean isHovered, boolean centered) {
+    private void drawOptionCard(GuiGraphicsExtractor graphics, int x1, int y1, int x2, int y2, Component title, boolean isHovered, boolean centered) {
         drawOptionCardBackground(graphics, x1, y1, x2, y2, isHovered);
         if (centered) {
-            graphics.drawCenteredString(this.font, title, (x1 + x2) / 2, y1 + (y2 - y1 - 8) / 2, 0xFFFFFFFF);
+            graphics.centeredText(this.font, title, (x1 + x2) / 2, y1 + (y2 - y1 - 8) / 2, 0xFFFFFFFF);
         } else {
-            graphics.drawString(this.font, title, x1 + 8, y1 + (y2 - y1 - 8) / 2, 0xFFFFFFFF, false);
+            graphics.text(this.font, title, x1 + 8, y1 + (y2 - y1 - 8) / 2, 0xFFFFFFFF, false);
         }
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTicks) {
         this.currentSin = (float) Math.sin(System.currentTimeMillis() * 0.003);
-        this.renderBackground(graphics, mouseX, mouseY, partialTicks);
+        this.extractBackground(graphics, mouseX, mouseY, partialTicks);
         
         int centerX = this.width / 2;
         int centerY = this.height / 2;
@@ -335,9 +335,9 @@ public class CullifyConfigScreen extends Screen {
         graphics.fill(divX, mainY1 + 5, divX + 1, mainY2 - 5, 0x22FFFFFF);
         
         // Draw Logo texture scaled to 32x32
-        graphics.blit(LOGO_TEXTURE, mainX1 + 19, mainY1 + 10, 0.0F, 0.0F, 32, 32, 32, 32);
+        graphics.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO_TEXTURE, mainX1 + 19, mainY1 + 10, 0.0F, 0.0F, 32, 32, 32, 32);
         // Draw Name centered below the logo
-        graphics.drawCenteredString(this.font, "§2§lCullify", mainX1 + 35, mainY1 + 46, 0xFFFFFFFF);
+        graphics.centeredText(this.font, "§2§lCullify", mainX1 + 35, mainY1 + 46, 0xFFFFFFFF);
         
         int tabX1 = mainX1 + 5;
         int tabX2 = divX - 5;
@@ -348,12 +348,12 @@ public class CullifyConfigScreen extends Screen {
         if (currentTab == 0) {
             graphics.fill(tabX1, tab1Y1, tabX1 + 2, tab1Y2, 0xFF2ECC71);
             graphics.fill(tabX1 + 2, tab1Y1, tabX2, tab1Y2, 0x222ECC71);
-            graphics.drawString(this.font, Component.translatable("cullify.menu.tab.general"), tabX1 + 8, tab1Y1 + 6, 0xFFFFFFFF, false);
+            graphics.text(this.font, Component.translatable("cullify.menu.tab.general"), tabX1 + 8, tab1Y1 + 6, 0xFFFFFFFF, false);
         } else {
             if (tab1Hovered) {
                 graphics.fill(tabX1, tab1Y1, tabX2, tab1Y2, 0x11FFFFFF);
             }
-            graphics.drawString(this.font, Component.translatable("cullify.menu.tab.general"), tabX1 + 8, tab1Y1 + 6, 0x88888888, false);
+            graphics.text(this.font, Component.translatable("cullify.menu.tab.general"), tabX1 + 8, tab1Y1 + 6, 0x88888888, false);
         }
 
         int tab2Y1 = centerY;
@@ -362,12 +362,12 @@ public class CullifyConfigScreen extends Screen {
         if (currentTab == 1) {
             graphics.fill(tabX1, tab2Y1, tabX1 + 2, tab2Y2, 0xFF2ECC71);
             graphics.fill(tabX1 + 2, tab2Y1, tabX2, tab2Y2, 0x222ECC71);
-            graphics.drawString(this.font, Component.translatable("cullify.menu.tab.vegetation"), tabX1 + 8, tab2Y1 + 6, 0xFFFFFFFF, false);
+            graphics.text(this.font, Component.translatable("cullify.menu.tab.vegetation"), tabX1 + 8, tab2Y1 + 6, 0xFFFFFFFF, false);
         } else {
             if (tab2Hovered) {
                 graphics.fill(tabX1, tab2Y1, tabX2, tab2Y2, 0x11FFFFFF);
             }
-            graphics.drawString(this.font, Component.translatable("cullify.menu.tab.vegetation"), tabX1 + 8, tab2Y1 + 6, 0x88888888, false);
+            graphics.text(this.font, Component.translatable("cullify.menu.tab.vegetation"), tabX1 + 8, tab2Y1 + 6, 0x88888888, false);
         }
 
         Component activeTooltipTitle = null;
@@ -434,7 +434,7 @@ public class CullifyConfigScreen extends Screen {
                 case CIRCLE: shapeColor = 0xFF16A085; break;
                 default: shapeColor = 0xFFFFFFFF; break;
             }
-            graphics.drawString(this.font, shapeName, cardX2 - 12 - this.font.width(shapeName), card4Y1 + 8, shapeColor, false);
+            graphics.text(this.font, shapeName, cardX2 - 12 - this.font.width(shapeName), card4Y1 + 8, shapeColor, false);
             if (card4Hovered) {
                 activeTooltipTitle = Component.translatable("cullify.options.culling_shape");
                 activeTooltipDesc = Component.translatable("cullify.options.culling_shape.tooltip");
@@ -453,7 +453,7 @@ public class CullifyConfigScreen extends Screen {
             graphics.fill(pX1, pY1, pX1 + 1, pY2, 0x22FFFFFF);
             graphics.fill(pX2 - 1, pY1, pX2, pY2, 0x22FFFFFF);
             
-            graphics.drawCenteredString(this.font, "Shape Preview", (pX1 + pX2) / 2, pY1 + 6, 0x88FFFFFF);
+            graphics.centeredText(this.font, "Shape Preview", (pX1 + pX2) / 2, pY1 + 6, 0x88FFFFFF);
             
             int pCX = (pX1 + pX2) / 2;
             int pCY = (pY1 + pY2) / 2 + 5;
@@ -549,7 +549,7 @@ public class CullifyConfigScreen extends Screen {
         boolean doneHovered = mouseX >= doneX1 && mouseX <= doneX2 && mouseY >= doneY1 && mouseY <= doneY2;
         drawOptionCard(graphics, doneX1, doneY1, doneX2, doneY2, Component.translatable("gui.done"), doneHovered, true);
 
-        super.render(graphics, mouseX, mouseY, partialTicks);
+        super.extractRenderState(graphics, mouseX, mouseY, partialTicks);
 
         if (activeTooltipTitle != null && activeTooltipDesc != null) {
             drawCustomTooltip(graphics, activeTooltipTitle, activeTooltipDesc, activeTooltipImpact, activeTooltipColor, mouseX, mouseY);
@@ -557,7 +557,10 @@ public class CullifyConfigScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean handled) {
+        double mouseX = event.x();
+        double mouseY = event.y();
+        int button = event.button();
         int centerX = this.width / 2;
         int centerY = this.height / 2;
 
@@ -685,22 +688,22 @@ public class CullifyConfigScreen extends Screen {
             }
         }
 
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(event, handled);
     }
 
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+    public boolean mouseReleased(net.minecraft.client.input.MouseButtonEvent event) {
         this.activeSlider = -1;
-        return super.mouseReleased(mouseX, mouseY, button);
+        return super.mouseReleased(event);
     }
 
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+    public boolean mouseDragged(net.minecraft.client.input.MouseButtonEvent event, double dragX, double dragY) {
         if (this.activeSlider != -1) {
-            updateSliderValue(mouseX);
+            updateSliderValue(event.x());
             return true;
         }
-        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+        return super.mouseDragged(event, dragX, dragY);
     }
 
     private void updateSliderValue(double mouseX) {
@@ -743,11 +746,11 @@ public class CullifyConfigScreen extends Screen {
         }
     }
 
-    private void drawSlider(GuiGraphics graphics, int x1, int y1, int x2, int y2, Component title, String valueStr, int value, int min, int max, boolean isHovered) {
+    private void drawSlider(GuiGraphicsExtractor graphics, int x1, int y1, int x2, int y2, Component title, String valueStr, int value, int min, int max, boolean isHovered) {
         drawOptionCardBackground(graphics, x1, y1, x2, y2, isHovered);
         
-        graphics.drawString(this.font, title, x1 + 8, y1 + 4, 0xFFFFFFFF, false);
-        graphics.drawString(this.font, valueStr, x2 - 8 - this.font.width(valueStr), y1 + 4, 0xFF2ECC71, false);
+        graphics.text(this.font, title, x1 + 8, y1 + 4, 0xFFFFFFFF, false);
+        graphics.text(this.font, valueStr, x2 - 8 - this.font.width(valueStr), y1 + 4, 0xFF2ECC71, false);
 
         int trackX1 = x1 + 8;
         int trackX2 = x2 - 8;
@@ -771,7 +774,7 @@ public class CullifyConfigScreen extends Screen {
         graphics.fill(handleX + handleW / 2 + 1, trackY - handleH / 2 - 1, handleX + handleW / 2 + 2, trackY + handleH / 2 + 2, glowColor);
     }
 
-    private void drawOptionCardBackground(GuiGraphics graphics, int x1, int y1, int x2, int y2, boolean isHovered) {
+    private void drawOptionCardBackground(GuiGraphicsExtractor graphics, int x1, int y1, int x2, int y2, boolean isHovered) {
         graphics.fill(x1, y1, x2, y2, isHovered ? 0x22FFFFFF : 0x11FFFFFF);
         if (isHovered) {
             float pulse = 0.6F + 0.4F * this.currentSin;
@@ -794,11 +797,13 @@ public class CullifyConfigScreen extends Screen {
     }
 
     @Override
-    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTicks) {
         if (this.minecraft.level != null) {
-            this.renderBlurredBackground(partialTicks);
+            this.extractBlurredBackground(graphics);
         } else {
-            super.renderBackground(graphics, mouseX, mouseY, partialTicks);
+            super.extractBackground(graphics, mouseX, mouseY, partialTicks);
         }
     }
 }
+
+

@@ -50,5 +50,6 @@
   "cullify.menu.option.grass": "Ocultar Hierba",
   "cullify.menu.option.flowers": "Ocultar Flores",
   "cullify.menu.option.other": "Ocultar Otros",
-  "cullify.menu.slider.distance": "Distancia"
+  "cullify.menu.slider.distance": "Distancia",
+  "key.category.cullify.cullify": "Cullify"
 }

@@ -50,5 +50,6 @@
   "cullify.menu.option.grass": "Nascondi Erba",
   "cullify.menu.option.flowers": "Nascondi Fiori",
   "cullify.menu.option.other": "Nascondi Altri",
-  "cullify.menu.slider.distance": "Distanza"
+  "cullify.menu.slider.distance": "Distanza",
+  "key.category.cullify.cullify": "Cullify"
 }

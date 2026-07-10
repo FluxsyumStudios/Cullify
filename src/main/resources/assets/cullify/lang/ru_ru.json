@@ -50,5 +50,6 @@
   "cullify.menu.option.grass": "Скрывать траву",
   "cullify.menu.option.flowers": "Скрывать цветы",
   "cullify.menu.option.other": "Скрывать прочее",
-  "cullify.menu.slider.distance": "Дистанция"
+  "cullify.menu.slider.distance": "Дистанция",
+  "key.category.cullify.cullify": "Cullify"
 }

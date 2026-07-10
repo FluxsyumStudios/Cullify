@@ -104,8 +104,8 @@ public class BenchmarkReportWriter {
             
             Component fileLink = Component.literal(file.getName())
                     .withStyle(style -> style
-                            .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_FILE, file.getAbsolutePath()))
-                            .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.translatable("cullify.benchmark.click_to_open")))
+                            .withClickEvent(new ClickEvent.OpenFile(file))
+                            .withHoverEvent(new HoverEvent.ShowText(Component.translatable("cullify.benchmark.click_to_open")))
                             .withUnderlined(true)
                             .withColor(ChatFormatting.GREEN)
                     );
@@ -176,7 +176,7 @@ public class BenchmarkReportWriter {
 
     private static void sendMessage(Component msg) {
         if (Minecraft.getInstance().player != null) {
-            Minecraft.getInstance().player.displayClientMessage(msg, false);
+            Minecraft.getInstance().player.sendSystemMessage(msg);
         }
     }
 }

@@ -128,7 +128,7 @@ public class ClientEventHandler {
         Vec3 cameraPos;
         if (mc.gameRenderer != null && mc.gameRenderer.getMainCamera() != null &&
                 mc.gameRenderer.getMainCamera().isInitialized()) {
-            cameraPos = mc.gameRenderer.getMainCamera().getPosition();
+            cameraPos = mc.gameRenderer.getMainCamera().position();
         } else {
             cameraPos = player.position();
         }
@@ -380,8 +380,8 @@ public class ClientEventHandler {
         int pSecZ = ((int) cameraPos.z) >> 4;
         int secRange = ((int) maxDist + 16) >> 4;
 
-        int minSecY = level.getMinSection();
-        int maxSecY = level.getMaxSection() - 1;
+        int minSecY = level.getMinSectionY();
+        int maxSecY = level.getMaxSectionY() - 1;
 
         double px = cameraPos.x;
         double py = cameraPos.y;

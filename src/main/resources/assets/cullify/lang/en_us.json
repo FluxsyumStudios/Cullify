@@ -50,5 +50,6 @@
   "cullify.menu.option.grass": "Cull Grass",
   "cullify.menu.option.flowers": "Cull Flowers",
   "cullify.menu.option.other": "Cull Other/Algae",
-  "cullify.menu.slider.distance": "Distance"
+  "cullify.menu.slider.distance": "Distance",
+  "key.category.cullify.cullify": "Cullify"
 }

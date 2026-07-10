@@ -188,7 +188,7 @@ public class BenchmarkManager {
 
     private static void sendMessage(Component msg) {
         if (Minecraft.getInstance().player != null) {
-            Minecraft.getInstance().player.displayClientMessage(msg, false);
+            Minecraft.getInstance().player.sendSystemMessage(msg);
         }
     }
 }

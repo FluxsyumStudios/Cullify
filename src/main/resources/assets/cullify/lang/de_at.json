@@ -50,5 +50,6 @@
   "cullify.menu.option.grass": "Gras ausblenden",
   "cullify.menu.option.flowers": "Blumen ausblenden",
   "cullify.menu.option.other": "Andere ausblenden",
-  "cullify.menu.slider.distance": "Distanz"
+  "cullify.menu.slider.distance": "Distanz",
+  "key.category.cullify.cullify": "Cullify"
 }

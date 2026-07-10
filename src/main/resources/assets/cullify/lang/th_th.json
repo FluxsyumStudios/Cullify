@@ -50,5 +50,6 @@
   "cullify.menu.option.grass": "ซ่อนหญ้า",
   "cullify.menu.option.flowers": "ซ่อนดอกไม้",
   "cullify.menu.option.other": "ซ่อนสาหร่าย/อื่นๆ",
-  "cullify.menu.slider.distance": "ระยะทาง"
+  "cullify.menu.slider.distance": "ระยะทาง",
+  "key.category.cullify.cullify": "Cullify"
 }

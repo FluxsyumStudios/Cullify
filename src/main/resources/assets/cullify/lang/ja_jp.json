@@ -50,5 +50,6 @@
   "cullify.menu.option.grass": "芝生カリング",
   "cullify.menu.option.flowers": "花カリング",
   "cullify.menu.option.other": "その他カリング",
-  "cullify.menu.slider.distance": "距離"
+  "cullify.menu.slider.distance": "距離",
+  "key.category.cullify.cullify": "Cullify"
 }

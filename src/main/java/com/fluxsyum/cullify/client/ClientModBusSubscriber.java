@@ -4,14 +4,14 @@ import com.fluxsyum.cullify.CullifyDebugManager;
 import com.fluxsyum.cullify.CullifyMod;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.resources.Identifier;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 
 public class ClientModBusSubscriber {
 
-    private static final ResourceLocation LOGO_RL = CullifyMod.LOGO;
+    private static final Identifier LOGO_RL = CullifyMod.LOGO;
     public static net.minecraft.client.KeyMapping configKeyMapping;
 
     // Registers mod event bus listeners manually to avoid deprecated EventBusSubscriber annotation
@@ -24,7 +24,7 @@ public class ClientModBusSubscriber {
         configKeyMapping = new net.minecraft.client.KeyMapping(
             "key.cullify.config",
             com.mojang.blaze3d.platform.InputConstants.KEY_K,
-            "key.categories.cullify"
+            net.minecraft.client.KeyMapping.Category.register(Identifier.fromNamespaceAndPath("cullify", "cullify"))
         );
         event.register(configKeyMapping);
     }
@@ -32,7 +32,7 @@ public class ClientModBusSubscriber {
     public static void registerGuiLayers(RegisterGuiLayersEvent event) {
         event.registerAbove(
             net.neoforged.neoforge.client.gui.VanillaGuiLayers.HOTBAR,
-            ResourceLocation.fromNamespaceAndPath(CullifyMod.MOD_ID, "debug_hud"),
+            Identifier.fromNamespaceAndPath(CullifyMod.MOD_ID, "debug_hud"),
             (graphics, deltaTracker) -> {
                 Minecraft mc = Minecraft.getInstance();
                 if (mc.options.hideGui || mc.gameMode == null) {
@@ -59,10 +59,10 @@ public class ClientModBusSubscriber {
                 graphics.fill(x + w - 1, y, x + w, y + h, 0x44FFFFFF);
 
                 // Mod logo
-                graphics.blit(LOGO_RL, x + 8, y + 8, 0.0f, 0.0f, 16, 16, 16, 16);
+                graphics.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, LOGO_RL, x + 8, y + 8, 0.0f, 0.0f, 16, 16, 16, 16);
 
                 Font font = mc.font;
-                graphics.drawString(font, "§e§lCullify Debug", x + 30, y + 12, 0xFFFFFFFF, false);
+                graphics.text(font, "§e§lCullify Debug", x + 30, y + 12, 0xFFFFFFFF, false);
                 graphics.fill(x + 8, y + 30, x + w - 8, y + 31, 0x33FFFFFF);
 
                 // Read from cached fields — zero ModConfigSpec overhead per frame
@@ -80,19 +80,20 @@ public class ClientModBusSubscriber {
                 String waterText = "Waterlogged: §9" + CullifyDebugManager.lastWaterReplacements;
                 String drawsText = "Draws: §d" + (sodium ? "MDI" : CullifyDebugManager.lastDrawCalls);
 
-                graphics.drawString(font, statusText, x + 10, y + 37, 0xFFFFFFFF, false);
-                graphics.drawString(font, pathText, x + 10, y + 47, 0xFFFFFFFF, false);
-                graphics.drawString(font, grassText, x + 10, y + 57, 0xFFFFFFFF, false);
-                graphics.drawString(font, flowersText, x + 10, y + 67, 0xFFFFFFFF, false);
-                graphics.drawString(font, otherText, x + 10, y + 77, 0xFFFFFFFF, false);
+                graphics.text(font, statusText, x + 10, y + 37, 0xFFFFFFFF, false);
+                graphics.text(font, pathText, x + 10, y + 47, 0xFFFFFFFF, false);
+                graphics.text(font, grassText, x + 10, y + 57, 0xFFFFFFFF, false);
+                graphics.text(font, flowersText, x + 10, y + 67, 0xFFFFFFFF, false);
+                graphics.text(font, otherText, x + 10, y + 77, 0xFFFFFFFF, false);
                 
                 graphics.fill(x + 8, y + 89, x + w - 8, y + 90, 0x22FFFFFF);
                 
-                graphics.drawString(font, hiddenText, x + 10, y + 95, 0xFFFFFFFF, false);
-                graphics.drawString(font, waterText, x + 10, y + 105, 0xFFFFFFFF, false);
-                graphics.drawString(font, drawsText, x + 10, y + 115, 0xFFFFFFFF, false);
+                graphics.text(font, hiddenText, x + 10, y + 95, 0xFFFFFFFF, false);
+                graphics.text(font, waterText, x + 10, y + 105, 0xFFFFFFFF, false);
+                graphics.text(font, drawsText, x + 10, y + 115, 0xFFFFFFFF, false);
             }
         );
     }
 }
+
 

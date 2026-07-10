@@ -50,5 +50,6 @@
   "cullify.menu.option.grass": "Ocultar Relva",
   "cullify.menu.option.flowers": "Ocultar Flores",
   "cullify.menu.option.other": "Ocultar Outros",
-  "cullify.menu.slider.distance": "Distância"
+  "cullify.menu.slider.distance": "Distância",
+  "key.category.cullify.cullify": "Cullify"
 }

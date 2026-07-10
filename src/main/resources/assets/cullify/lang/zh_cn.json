@@ -50,5 +50,6 @@
   "cullify.menu.option.grass": "剔除草地",
   "cullify.menu.option.flowers": "剔除花卉",
   "cullify.menu.option.other": "剔除其它",
-  "cullify.menu.slider.distance": "距离"
+  "cullify.menu.slider.distance": "距离",
+  "key.category.cullify.cullify": "Cullify"
 }
