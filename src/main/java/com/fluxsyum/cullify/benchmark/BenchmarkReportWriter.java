@@ -60,7 +60,7 @@ public class BenchmarkReportWriter {
         }
     }
 
-    public static void saveComparisonReport(List<Double> withoutTimes, List<Double> withTimes) {
+    public static File saveComparisonReport(List<Double> withoutTimes, List<Double> withTimes) {
         Metrics metricsWithout = Metrics.compute(withoutTimes);
         Metrics metricsWith = Metrics.compute(withTimes);
 
@@ -127,6 +127,8 @@ public class BenchmarkReportWriter {
         sendMessage(Component.literal(String.format("§ePerformance Gain: §a%+.2f%% Avg FPS §7| §a%+.2f%% 1%% Lows",
                 gainAvg, gain1)));
         sendMessage(Component.literal("§e============================================="));
+        
+        return file;
     }
 
     private static String buildReportString(
