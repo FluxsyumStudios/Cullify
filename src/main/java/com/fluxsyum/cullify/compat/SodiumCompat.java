@@ -84,7 +84,6 @@ public class SodiumCompat implements ConfigEntryPoint {
                             CullifyConfig.LOD_DENSITY.set(v);
                             CullifyMod.updateConfigCache();
                             CullifyMod.incrementConfigVersion();
-                            CullifyMod.voxelGridDirty = true;
                             CullifyMod.scheduleWorldReload();
                         },
                         () -> CullifyConfig.LOD_DENSITY.get()

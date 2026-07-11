@@ -183,7 +183,6 @@ public class CullifyConfigScreen extends Screen {
     private void onConfigChange() {
         CullifyMod.updateConfigCache();
         CullifyMod.incrementConfigVersion();
-        CullifyMod.voxelGridDirty = true;
         CullifyMod.scheduleWorldReload();
         ClientEventHandler.scheduleDebouncedSave();
     }
