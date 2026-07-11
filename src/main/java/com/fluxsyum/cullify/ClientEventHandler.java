@@ -206,7 +206,6 @@ public class ClientEventHandler {
             ticksSinceLastCheck = 0;
             debugTickCounter = 0;
             CullifyMod.updateConfigCache();
-            CullifyMod.voxelGridDirty = true;
             CullifyDebugManager.syncFromConfig();
             return;
         }
@@ -250,7 +249,6 @@ public class ClientEventHandler {
             scheduleDebouncedSave();
             CullifyMod.updateConfigCache();
             CullifyMod.incrementConfigVersion();
-            CullifyMod.voxelGridDirty = true;
             CullifyMod.scheduleWorldReload();
         }
 
@@ -271,14 +269,14 @@ public class ClientEventHandler {
                 }
                 if (factor != CullifyMod.smartScaleFactor) {
                     CullifyMod.smartScaleFactor = factor;
-                    CullifyMod.voxelGridDirty = true;
+                    CullifyMod.updateScaledDistances();
                 }
             }
         } else {
             // Reset factor when Smart Scale is disabled
             if (CullifyMod.smartScaleFactor != 1.0f) {
                 CullifyMod.smartScaleFactor = 1.0f;
-                CullifyMod.voxelGridDirty = true;
+                CullifyMod.updateScaledDistances();
                 smartScaleTickCounter = 0;
             }
         }
@@ -310,14 +308,6 @@ public class ClientEventHandler {
                 lastPlayerX = cameraPos.x;
                 lastPlayerY = cameraPos.y;
                 lastPlayerZ = cameraPos.z;
-
-                // Rebuild voxel grid on background thread if dirty or player moved significantly
-                if (CullifyMod.voxelGridDirty || distMovedSq > 16.0) {
-                    final double rpx = cameraPos.x;
-                    final double rpy = cameraPos.y;
-                    final double rpz = cameraPos.z;
-                    ASYNC_CLASSIFIER.submit(() -> CullifyMod.rebuildVoxelGrid(rpx, rpy, rpz));
-                }
 
                 // Submit section classification to background thread — at most one pending at a time
                 if (classifierPending.compareAndSet(false, true)) {
@@ -366,7 +356,6 @@ public class ClientEventHandler {
                     sectionStates.clear();
                     CullifyMod.updateConfigCache();
                     CullifyMod.incrementConfigVersion();
-                    CullifyMod.voxelGridDirty = true;
                     CullifyMod.scheduleWorldReload();
                     Minecraft mc = Minecraft.getInstance();
                     LocalPlayer player = mc.player;
@@ -622,46 +611,56 @@ public class ClientEventHandler {
         // Use cached shape to avoid SPEC.get() overhead
         CullifyConfig.CullingShape shape = CullifyMod.cachedShape;
 
-        // Fast early-out: nearest corner is already beyond threshold → fully culled
+        // Fast culling check (if the minimum distance is greater than the threshold, it is outside)
         if (shape == CullifyConfig.CullingShape.SPHERE) {
             double minDistSq = nearDx * nearDx + nearDy * nearDy + nearDz * nearDz;
             if (minDistSq > threshold * threshold) return 2;
+            
+            // Farthest corner check for Sphere
+            double maxDistSq = farDx * farDx + farDy * farDy + farDz * farDz;
+            if (maxDistSq <= threshold * threshold) return 1;
+            return 0;
         } else if (shape == CullifyConfig.CullingShape.BOX) {
             double minDist = Math.max(nearDx, Math.max(nearDy, nearDz));
             if (minDist > threshold) return 2;
+            
+            // Farthest corner check for Box
+            double maxDist = Math.max(farDx, Math.max(farDy, farDz));
+            if (maxDist <= threshold) return 1;
+            return 0;
+        } else if (shape == CullifyConfig.CullingShape.CYLINDER || shape == CullifyConfig.CullingShape.CIRCLE) {
+            double minDistSq = nearDx * nearDx + nearDz * nearDz;
+            if (minDistSq > threshold * threshold) return 2;
+            
+            // Farthest corner check in XZ plane
+            double maxDistSq = farDx * farDx + farDz * farDz;
+            if (maxDistSq <= threshold * threshold) return 1;
+            return 0;
         } else if (shape == CullifyConfig.CullingShape.SQUARE) {
             double minDist = Math.max(nearDx, nearDz);
             if (minDist > threshold) return 2;
-        } else { // CYLINDER, CIRCLE, TRIANGLE, HEXAGON, STAR
+            
+            // Farthest corner check in XZ plane
+            double maxDist = Math.max(farDx, farDz);
+            if (maxDist <= threshold) return 1;
+            return 0;
+        } else { // TRIANGLE, HEXAGON, STAR
             double minDistSq = nearDx * nearDx + nearDz * nearDz;
             if (minDistSq > threshold * threshold) return 2;
         }
 
-        // For BOX: check if entire AABB is inside
-        if (shape == CullifyConfig.CullingShape.BOX) {
-            double maxDist = Math.max(farDx, Math.max(farDy, farDz));
-            if (maxDist <= threshold) {
-                return 1;
-            }
-            return 0;
-        }
-
-        // General case: check all corners
+        // Check if the corners are contained in the shape (sufficient for 2D convex shapes)
         boolean c1 = CullifyMod.isInShape(nearDx, nearDy, nearDz, threshold, shape);
-        boolean c2 = CullifyMod.isInShape(nearDx, nearDy, farDz,  threshold, shape);
-        boolean c3 = CullifyMod.isInShape(farDx,  nearDy, nearDz, threshold, shape);
-        boolean c4 = CullifyMod.isInShape(farDx,  nearDy, farDz,  threshold, shape);
+        boolean c2 = CullifyMod.isInShape(nearDx, nearDy, farDz, threshold, shape);
+        boolean c3 = CullifyMod.isInShape(farDx, nearDy, nearDz, threshold, shape);
+        boolean c4 = CullifyMod.isInShape(farDx, nearDy, farDz, threshold, shape);
 
         boolean fullyIn = c1 && c2 && c3 && c4;
 
-        if (shape == CullifyConfig.CullingShape.SPHERE) {
-            boolean c5 = CullifyMod.isInShape(nearDx, farDy, nearDz, threshold, shape);
-            boolean c6 = CullifyMod.isInShape(nearDx, farDy, farDz,  threshold, shape);
-            boolean c7 = CullifyMod.isInShape(farDx,  farDy, nearDz, threshold, shape);
-            boolean c8 = CullifyMod.isInShape(farDx,  farDy, farDz,  threshold, shape);
-            fullyIn = fullyIn && c5 && c6 && c7 && c8;
+        if (fullyIn) {
+            return 1;
         }
 
-        return fullyIn ? (byte) 1 : (byte) 0;
+        return 0;
     }
 }

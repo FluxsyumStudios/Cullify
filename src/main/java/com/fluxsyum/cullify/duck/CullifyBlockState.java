@@ -27,5 +27,11 @@ public interface CullifyBlockState {
      * For waterlogged blocks, returns WATER. For non-fluid blocks, returns AIR.
      * Cached lazily.
      */
-    BlockState cullify$getFluidBlockState();
+     BlockState cullify$getFluidBlockState();
+
+    /**
+     * Returns whether this BlockState is the UPPER half of a double block.
+     * Cached lazily.
+     */
+    boolean cullify$isDoubleBlockUpperHalf();
 }

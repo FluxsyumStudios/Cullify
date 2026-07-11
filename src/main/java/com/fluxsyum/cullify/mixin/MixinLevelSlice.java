@@ -31,12 +31,7 @@ public class MixinLevelSlice {
     @Unique private final byte[] cullify$grassCache  = new byte[27];
     @Unique private final byte[] cullify$flowerCache = new byte[27];
     @Unique private final byte[] cullify$otherCache  = new byte[27];
-
-    /**
-     * Pre-filter flag: true if section [i] contains at least one cullable plant.
-     * Built during copyData so that sections with no vegetation skip all math.
-     */
-    @Unique private final boolean[] cullify$hasVegetation = new boolean[27];
+    @Unique private final float[] cullify$lightFactors = new float[27];
 
     @Unique private volatile boolean cullify$cacheValid = false;
     @Unique private volatile int cullify$lastConfigVersion = -1;
@@ -46,7 +41,6 @@ public class MixinLevelSlice {
     private void cullify$onCopyData(CallbackInfo ci) {
         cullify$cacheValid = false;
         CullifyDebugManager.mixinLevelSliceApplied = true;
-        cullify$scanVegetation(); // always scan so hasVegetation stays accurate
         if (CullifyMod.cachedEnabled && CullifyMod.hasPlayer) {
             cullify$rebuildCache();
         }
@@ -76,19 +70,13 @@ public class MixinLevelSlice {
         int ly = (y - originBlockY) >> 4;
         int lz = (z - originBlockZ) >> 4;
 
-        // Mark this section as containing vegetation (lazy population of hasVegetation)
-        cullify$markVegetation(lx, ly, lz);
-        
         boolean benchmark = com.fluxsyum.cullify.benchmark.BenchmarkManager.isRunning();
         if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.blocksTested.increment();
 
-        // If the section cache is invalid (e.g. configVersion changed mid-section),
-        // skip the cached fast-path and fall through to per-block shouldCull().
-        // The cache is rebuilt only in copyData (once per section), never here.
-        if (cullify$cacheValid && cullify$lastConfigVersion == CullifyMod.configVersion
-                && lx >= 0 && lx <= 2 && ly >= 0 && ly <= 2 && lz >= 0 && lz <= 2) {
+        boolean inBounds = lx >= 0 && lx <= 2 && ly >= 0 && ly <= 2 && lz >= 0 && lz <= 2;
+        int sectionIdx = inBounds ? (ly * 9 + lz * 3 + lx) : -1;
 
-            int sectionIdx = ly * 9 + lz * 3 + lx;
+        if (cullify$cacheValid && cullify$lastConfigVersion == CullifyMod.configVersion && inBounds) {
             byte cacheState = cullify$getCacheState(type, sectionIdx);
 
             if (cacheState == FULLY_CULLED) {
@@ -101,17 +89,28 @@ public class MixinLevelSlice {
                 return;
             } else if (cacheState == FULLY_KEPT) {
                 if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheHits.increment();
-                // Definitely inside radius — no further check needed.
                 return;
             }
-            // STRADDLING: fall through to per-block check below
             if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheMisses.increment();
         } else {
             if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheMisses.increment();
         }
 
-        // Out-of-bounds section index or cache not ready: per-block fallback
-        if (CullifyMod.shouldCull(state, x, y, z)) {
+        float lightFactor = 1.0f;
+        if (inBounds) {
+            lightFactor = cullify$lightFactors[sectionIdx];
+        } else if (CullifyMod.cachedLightAware) {
+            int sx = x >> 4;
+            int sy = y >> 4;
+            int sz = z >> 4;
+            long secKey = net.minecraft.core.SectionPos.asLong(sx, sy, sz);
+            Float factor = CullifyMod.sectionLightFactors.get(secKey);
+            if (factor != null) {
+                lightFactor = factor;
+            }
+        }
+
+        if (CullifyMod.shouldCull(state, x, y, z, lightFactor)) {
             if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.blocksCulled.increment();
             cir.setReturnValue(CullifyMod.getCulledState(state));
         }
@@ -139,17 +138,13 @@ public class MixinLevelSlice {
         int ly = (y - originBlockY) >> 4;
         int lz = (z - originBlockZ) >> 4;
 
-        // Mark this section as containing vegetation (lazy population of hasVegetation)
-        cullify$markVegetation(lx, ly, lz);
-
         boolean benchmark = com.fluxsyum.cullify.benchmark.BenchmarkManager.isRunning();
         if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.blocksTested.increment();
 
-        // Same cache policy as the coordinate-based hook: never rebuild here.
-        if (cullify$cacheValid && cullify$lastConfigVersion == CullifyMod.configVersion
-                && lx >= 0 && lx <= 2 && ly >= 0 && ly <= 2 && lz >= 0 && lz <= 2) {
+        boolean inBounds = lx >= 0 && lx <= 2 && ly >= 0 && ly <= 2 && lz >= 0 && lz <= 2;
+        int sectionIdx = inBounds ? (ly * 9 + lz * 3 + lx) : -1;
 
-            int sectionIdx = ly * 9 + lz * 3 + lx;
+        if (cullify$cacheValid && cullify$lastConfigVersion == CullifyMod.configVersion && inBounds) {
             byte cacheState = cullify$getCacheState(type, sectionIdx);
 
             if (cacheState == FULLY_CULLED) {
@@ -162,17 +157,28 @@ public class MixinLevelSlice {
                 return;
             } else if (cacheState == FULLY_KEPT) {
                 if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheHits.increment();
-                // Definitely inside radius — no further check needed.
                 return;
             }
-            // STRADDLING: fall through to per-block check below
             if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheMisses.increment();
         } else {
             if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheMisses.increment();
         }
 
-        // Out-of-bounds or cache not ready: per-block fallback
-        if (CullifyMod.shouldCull(state, x, y, z)) {
+        float lightFactor = 1.0f;
+        if (inBounds) {
+            lightFactor = cullify$lightFactors[sectionIdx];
+        } else if (CullifyMod.cachedLightAware) {
+            int sx = x >> 4;
+            int sy = y >> 4;
+            int sz = z >> 4;
+            long secKey = net.minecraft.core.SectionPos.asLong(sx, sy, sz);
+            Float factor = CullifyMod.sectionLightFactors.get(secKey);
+            if (factor != null) {
+                lightFactor = factor;
+            }
+        }
+
+        if (CullifyMod.shouldCull(state, x, y, z, lightFactor)) {
             if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.blocksCulled.increment();
             cir.setReturnValue(CullifyMod.getCulledState(state));
         }
@@ -200,11 +206,15 @@ public class MixinLevelSlice {
             final double nearDy = py < minY ? minY - py : (py > maxY ? py - maxY : 0.0);
             final double farDy  = py < minY + 8.0 ? maxY - py : py - minY;
 
+            int sy = (originBlockY >> 4) + ly - 1;
+
             for (int lz = 0; lz < 3; lz++) {
                 final double minZ = originBlockZ + (lz << 4);
                 final double maxZ = minZ + 16.0;
                 final double nearDz = pz < minZ ? minZ - pz : (pz > maxZ ? pz - maxZ : 0.0);
                 final double farDz  = pz < minZ + 8.0 ? maxZ - pz : pz - minZ;
+
+                int sz = (originBlockZ >> 4) + lz - 1;
 
                 for (int lx = 0; lx < 3; lx++) {
                     final double minX = originBlockX + (lx << 4);
@@ -212,11 +222,22 @@ public class MixinLevelSlice {
                     final double nearDx = px < minX ? minX - px : (px > maxX ? px - maxX : 0.0);
                     final double farDx  = px < minX + 8.0 ? maxX - px : px - minX;
 
+                    int sx = (originBlockX >> 4) + lx - 1;
+
                     final int sectionIdx = ly * 9 + lz * 3 + lx;
 
                     cullify$grassCache[sectionIdx]  = cullify$classify(nearDx, farDx, nearDy, farDy, nearDz, farDz, grassDist);
                     cullify$flowerCache[sectionIdx] = cullify$classify(nearDx, farDx, nearDy, farDy, nearDz, farDz, flowerDist);
                     cullify$otherCache[sectionIdx]  = cullify$classify(nearDx, farDx, nearDy, farDy, nearDz, farDz, otherDist);
+
+                    // Light-Aware Culling: cache light factor
+                    if (CullifyMod.cachedLightAware) {
+                        long secKey = net.minecraft.core.SectionPos.asLong(sx, sy, sz);
+                        Float factor = CullifyMod.sectionLightFactors.get(secKey);
+                        cullify$lightFactors[sectionIdx] = factor != null ? factor : 1.0f;
+                    } else {
+                        cullify$lightFactors[sectionIdx] = 1.0f;
+                    }
                 }
             }
         }
@@ -244,24 +265,38 @@ public class MixinLevelSlice {
         if (shape == CullifyConfig.CullingShape.SPHERE) {
             double minDistSq = nearDx * nearDx + nearDy * nearDy + nearDz * nearDz;
             if (minDistSq > threshold * threshold) return FULLY_CULLED;
+            
+            // Farthest corner check for Sphere
+            double maxDistSq = farDx * farDx + farDy * farDy + farDz * farDz;
+            if (maxDistSq <= threshold * threshold) return FULLY_KEPT;
+            return STRADDLING;
         } else if (shape == CullifyConfig.CullingShape.BOX) {
             double minDist = Math.max(nearDx, Math.max(nearDy, nearDz));
             if (minDist > threshold) return FULLY_CULLED;
+            
+            // Farthest corner check for Box
+            double maxDist = Math.max(farDx, Math.max(farDy, farDz));
+            if (maxDist <= threshold) return FULLY_KEPT;
+            return STRADDLING;
+        } else if (shape == CullifyConfig.CullingShape.CYLINDER || shape == CullifyConfig.CullingShape.CIRCLE) {
+            double minDistSq = nearDx * nearDx + nearDz * nearDz;
+            if (minDistSq > threshold * threshold) return FULLY_CULLED;
+            
+            // Farthest corner check in XZ plane
+            double maxDistSq = farDx * farDx + farDz * farDz;
+            if (maxDistSq <= threshold * threshold) return FULLY_KEPT;
+            return STRADDLING;
         } else if (shape == CullifyConfig.CullingShape.SQUARE) {
             double minDist = Math.max(nearDx, nearDz);
             if (minDist > threshold) return FULLY_CULLED;
-        } else { // CYLINDER, CIRCLE, TRIANGLE, HEXAGON, STAR
+            
+            // Farthest corner check in XZ plane
+            double maxDist = Math.max(farDx, farDz);
+            if (maxDist <= threshold) return FULLY_KEPT;
+            return STRADDLING;
+        } else { // TRIANGLE, HEXAGON, STAR
             double minDistSq = nearDx * nearDx + nearDz * nearDz;
             if (minDistSq > threshold * threshold) return FULLY_CULLED;
-        }
-
-        // For box shape, check if the entire AABB is contained within the shape
-        if (shape == CullifyConfig.CullingShape.BOX) {
-            double maxDist = Math.max(farDx, Math.max(farDy, farDz));
-            if (maxDist <= threshold) {
-                return FULLY_KEPT;
-            }
-            return STRADDLING;
         }
 
         // Check if the corners are contained in the shape (sufficient for 2D convex shapes)
@@ -271,15 +306,6 @@ public class MixinLevelSlice {
         boolean c4 = CullifyMod.isInShape(farDx, nearDy, farDz, threshold, shape);
 
         boolean fullyIn = c1 && c2 && c3 && c4;
-
-        if (shape == CullifyConfig.CullingShape.SPHERE) {
-            // For sphere, also validate the upper Y bound of the block section
-            boolean c5 = CullifyMod.isInShape(nearDx, farDy, nearDz, threshold, shape);
-            boolean c6 = CullifyMod.isInShape(nearDx, farDy, farDz, threshold, shape);
-            boolean c7 = CullifyMod.isInShape(farDx, farDy, nearDz, threshold, shape);
-            boolean c8 = CullifyMod.isInShape(farDx, farDy, farDz, threshold, shape);
-            fullyIn = fullyIn && c5 && c6 && c7 && c8;
-        }
 
         if (fullyIn) {
             return FULLY_KEPT;
@@ -302,30 +328,4 @@ public class MixinLevelSlice {
                 return FULLY_KEPT;
         }
     }
-
-    /**
-     * Resets the hasVegetation flags to false.
-     * Called at the start of copyData so stale flags from the previous chunk are cleared.
-     * Flags are set lazily — the first time a plant block is encountered in a section
-     * during getBlockState, we mark that section as containing vegetation.
-     */
-    @Unique
-    private void cullify$scanVegetation() {
-        for (int i = 0; i < 27; i++) {
-            cullify$hasVegetation[i] = false;
-        }
-    }
-
-    /**
-     * Called from both getBlockState hooks whenever a plant block is found.
-     * Marks the enclosing sub-section so subsequent blocks in the same section
-     * skip the empty-section fast-exit (we know it has plants).
-     */
-    @Unique
-    private void cullify$markVegetation(int lx, int ly, int lz) {
-        if (lx >= 0 && lx <= 2 && ly >= 0 && ly <= 2 && lz >= 0 && lz <= 2) {
-            cullify$hasVegetation[ly * 9 + lz * 3 + lx] = true;
-        }
-    }
 }
-

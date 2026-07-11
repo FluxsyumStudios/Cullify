@@ -32,6 +32,9 @@ public abstract class MixinBlockState implements CullifyBlockState {
     @Unique
     private volatile BlockState cullify$fluidBlockStateCached;
 
+    @Unique
+    private volatile Boolean cullify$isDoubleBlockUpperHalfCached;
+
     @Override
     @Unique
     public CullifyMod.PlantType cullify$getPlantType() {
@@ -68,6 +71,19 @@ public abstract class MixinBlockState implements CullifyBlockState {
                 cached = fluidState.createLegacyBlock();
             }
             this.cullify$fluidBlockStateCached = cached;
+        }
+        return cached;
+    }
+
+    @Override
+    @Unique
+    public boolean cullify$isDoubleBlockUpperHalf() {
+        Boolean cached = this.cullify$isDoubleBlockUpperHalfCached;
+        if (cached == null) {
+            BlockState state = (BlockState) (Object) this;
+            cached = state.hasProperty(net.minecraft.world.level.block.state.properties.BlockStateProperties.DOUBLE_BLOCK_HALF)
+                    && state.getValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.DOUBLE_BLOCK_HALF) == net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER;
+            this.cullify$isDoubleBlockUpperHalfCached = cached;
         }
         return cached;
     }

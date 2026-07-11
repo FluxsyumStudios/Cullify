@@ -77,7 +77,6 @@ public class BenchmarkManager {
         Minecraft.getInstance().execute(() -> {
             CullifyMod.updateConfigCache();
             CullifyMod.incrementConfigVersion();
-            CullifyMod.voxelGridDirty = true;
             if (Minecraft.getInstance().levelRenderer != null) {
                 Minecraft.getInstance().levelRenderer.allChanged();
             }
@@ -158,7 +157,6 @@ public class BenchmarkManager {
             Minecraft.getInstance().execute(() -> {
                 CullifyMod.updateConfigCache();
                 CullifyMod.incrementConfigVersion();
-                CullifyMod.voxelGridDirty = true;
                 if (Minecraft.getInstance().levelRenderer != null) {
                     Minecraft.getInstance().levelRenderer.allChanged();
                 }
@@ -173,7 +171,6 @@ public class BenchmarkManager {
             Minecraft.getInstance().execute(() -> {
                 CullifyMod.updateConfigCache();
                 CullifyMod.incrementConfigVersion();
-                CullifyMod.voxelGridDirty = true;
                 if (Minecraft.getInstance().levelRenderer != null) {
                     Minecraft.getInstance().levelRenderer.allChanged();
                 }
