@@ -289,7 +289,7 @@ public class ClientEventHandler {
             double dz = cameraPos.z - lastPlayerZ;
             double distMovedSq = dx * dx + dy * dy + dz * dz;
 
-            if (distMovedSq > 0.25) {
+            if (distMovedSq > 4.0) {
                 // Update position snapshot immediately so the next tick doesn't re-trigger
                 lastPlayerX = cameraPos.x;
                 lastPlayerY = cameraPos.y;
@@ -456,6 +456,7 @@ public class ClientEventHandler {
 
         // Collect sections that need a render rebuild; dispatched to main thread below
         List<Long> dirtyPositions = new ArrayList<>();
+        net.minecraft.core.BlockPos.MutableBlockPos mutablePos = new net.minecraft.core.BlockPos.MutableBlockPos();
 
         for (int sx = pSecX - secRange; sx <= pSecX + secRange; sx++) {
             double minX  = sx << 4;
@@ -517,7 +518,8 @@ public class ClientEventHandler {
                             double rDx = px - secState.lastRebuildX;
                             double rDy = py - secState.lastRebuildY;
                             double rDz = pz - secState.lastRebuildZ;
-                            if (rDx * rDx + rDy * rDy + rDz * rDz > 4.0) {
+                            // Wait for player to move 6 blocks before rebuilding partially culled sections
+                            if (rDx * rDx + rDy * rDy + rDz * rDz > 36.0) {
                                 rebuild = true;
                                 secState.lastRebuildX = px;
                                 secState.lastRebuildY = py;
@@ -537,9 +539,9 @@ public class ClientEventHandler {
                             int cx = (sx << 4) + 8;
                             int cy = (sy << 4) + 8;
                             int cz = (sz << 4) + 8;
-                            net.minecraft.core.BlockPos centerPos = new net.minecraft.core.BlockPos(cx, cy, cz);
-                            int sky   = level.getBrightness(net.minecraft.world.level.LightLayer.SKY, centerPos);
-                            int block = level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, centerPos);
+                            mutablePos.set(cx, cy, cz);
+                            int sky   = level.getBrightness(net.minecraft.world.level.LightLayer.SKY, mutablePos);
+                            int block = level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, mutablePos);
                             // Weight sky light more heavily — a single torch should not fully restore distance
                             float importance = (0.75f * sky + 0.25f * block) / 15.0f;
                             // Clamp to [0.3, 1.0]: fully dark = 30% of configured distance; full sun = 100%
