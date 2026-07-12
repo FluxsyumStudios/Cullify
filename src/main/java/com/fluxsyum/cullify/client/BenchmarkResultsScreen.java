@@ -110,7 +110,7 @@ public class BenchmarkResultsScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         this.currentSin = (float) Math.sin(System.currentTimeMillis() * 0.003);
-        this.renderBackground(graphics, mouseX, mouseY, partialTicks);
+        super.render(graphics, mouseX, mouseY, partialTicks);
 
         int centerX = this.width / 2;
         int centerY = this.height / 2;
@@ -204,7 +204,7 @@ public class BenchmarkResultsScreen extends Screen {
         boolean hasReport = this.reportFile != null && this.reportFile.exists();
         drawButton(graphics, reportX1, buttonY1, reportX2, buttonY2, Component.literal("Open Report"), reportHovered && hasReport);
 
-        super.render(graphics, mouseX, mouseY, partialTicks);
+
     }
 
     private void drawFpsChartLine(GuiGraphics graphics, int x1, int x2, int y1, int y2, List<Double> points, int color) {
