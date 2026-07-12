@@ -8,7 +8,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.Vec3;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal;
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.argument;
@@ -204,6 +203,8 @@ public class ClientEventHandler {
             debugTickCounter = 0;
             CullifyMod.updateConfigCache();
             CullifyDebugManager.syncFromConfig();
+            CullifyMod.incrementConfigVersion();
+            CullifyMod.scheduleWorldReload();
             return;
         }
 

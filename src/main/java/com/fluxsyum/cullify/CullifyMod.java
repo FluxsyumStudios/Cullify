@@ -191,7 +191,8 @@ public class CullifyMod implements ClientModInitializer {
         Block block = state.getBlock();
 
         // 1. Direct block checks first (extremely fast reference comparisons)
-        if (block == Blocks.TALL_GRASS || block == Blocks.LARGE_FERN) {
+        if (block == Blocks.TALL_GRASS || block == Blocks.LARGE_FERN ||
+            block == Blocks.SHORT_GRASS || block == Blocks.FERN) {
             return PlantType.GRASS;
         }
 
