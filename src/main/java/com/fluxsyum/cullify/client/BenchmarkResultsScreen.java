@@ -339,6 +339,11 @@ public class BenchmarkResultsScreen extends Screen {
     }
 
     @Override
+    public void onClose() {
+        this.minecraft.setScreen(this.parent);
+    }
+
+    @Override
     public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTicks) {
         if (this.minecraft.level != null) {
             this.extractBlurredBackground(graphics);

@@ -141,8 +141,8 @@ public class CullifyMod implements ClientModInitializer {
         long hash = (x * PRIME_X) ^ (y * PRIME_Y) ^ (z * PRIME_Z);
         hash ^= (hash >>> 33);
         hash *= 0xff51afd7ed558ccdL;
-        hash ^= (hash >>> 33);
-        int bucket = (int) ((hash & Long.MAX_VALUE) % 100L);
+        // Fast-range reduction: maps the low 32 bits to 0-99 without a modulo
+        int bucket = (int) (((hash & 0xFFFFFFFFL) * 100) >>> 32);
         return bucket < density;
     }
 
@@ -191,7 +191,8 @@ public class CullifyMod implements ClientModInitializer {
         Block block = state.getBlock();
 
         // 1. Direct block checks first (extremely fast reference comparisons)
-        if (block == Blocks.TALL_GRASS || block == Blocks.LARGE_FERN) {
+        if (block == Blocks.TALL_GRASS || block == Blocks.LARGE_FERN ||
+            block == Blocks.SHORT_GRASS || block == Blocks.FERN) {
             return PlantType.GRASS;
         }
 
