@@ -10,14 +10,11 @@ import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.config.ModConfig;
-import net.neoforged.fml.event.config.ModConfigEvent;
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.loader.api.FabricLoader;
 import java.util.concurrent.atomic.AtomicInteger;
 
-@Mod(CullifyMod.MOD_ID)
-public class CullifyMod {
+public class CullifyMod implements ClientModInitializer {
     public static final String MOD_ID = "cullify";
     public static String VERSION = "1.3.1";
     public static final Identifier LOGO = Identifier.fromNamespaceAndPath(MOD_ID, "textures/gui/logo.png");
@@ -152,43 +149,20 @@ public class CullifyMod {
     // -----------------------------------------------------------------------
     // Mod lifecycle
     // -----------------------------------------------------------------------
-    public CullifyMod(ModContainer modContainer) {
-        VERSION = modContainer.getModInfo().getVersion().toString();
-        modContainer.registerConfig(ModConfig.Type.CLIENT, CullifyConfig.SPEC);
-        modContainer.getEventBus().addListener(this::onClientSetup);
-        modContainer.getEventBus().addListener(this::onConfigReload);
+    @Override
+    public void onInitializeClient() {
+        CullifyConfig.load();
+        updateConfigCache();
+        CullifyDebugManager.syncFromConfig();
 
-        if (net.neoforged.fml.loading.FMLEnvironment.getDist().isClient()) {
-            modContainer.registerExtensionPoint(
-                net.neoforged.neoforge.client.gui.IConfigScreenFactory.class,
-                (client, parent) -> new com.fluxsyum.cullify.client.CullifyConfigScreen(parent)
-            );
-            com.fluxsyum.cullify.client.ClientModBusSubscriber.register(modContainer.getEventBus());
-        }
-    }
+        VERSION = FabricLoader.getInstance().getModContainer(MOD_ID)
+                .map(container -> container.getMetadata().getVersion().getFriendlyString())
+                .orElse("1.4.0");
 
-    private void onClientSetup(net.neoforged.fml.event.lifecycle.FMLClientSetupEvent event) {
-        try {
-            Class.forName("toni.sodiumoptionsapi.api.OptionGUIConstruction", false, this.getClass().getClassLoader());
-            Class<?> compatClass = Class.forName("com.fluxsyum.cullify.compat.SodiumCompat");
-            compatClass.getMethod("registerOptions").invoke(null);
-        } catch (Throwable ignored) {
-        }
+        CullifyDebugManager.sodiumDetected = FabricLoader.getInstance().isModLoaded("sodium");
 
-        try {
-            Class.forName("net.caffeinemc.mods.sodium.client.world.LevelSlice", false, this.getClass().getClassLoader());
-            CullifyDebugManager.sodiumDetected = true;
-        } catch (Throwable ignored) {
-            CullifyDebugManager.sodiumDetected = false;
-        }
-    }
-
-    private void onConfigReload(ModConfigEvent event) {
-        if (event.getConfig().getModId().equals(MOD_ID)) {
-            updateConfigCache();
-            CullifyDebugManager.syncFromConfig();
-            scheduleWorldReload();
-        }
+        com.fluxsyum.cullify.client.ClientModBusSubscriber.register();
+        com.fluxsyum.cullify.ClientEventHandler.register();
     }
 
     public static volatile boolean reloadRequired = false;

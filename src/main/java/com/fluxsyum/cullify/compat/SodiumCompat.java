@@ -13,7 +13,7 @@ import net.minecraft.resources.Identifier;
 
 /**
  * Registers Cullify's options natively into the Sodium 0.8.x config UI.
- * Registered via the "sodium:config_api_user" property in neoforge.mods.toml.
+ * Registered via the "sodium:config_api_user" entrypoint in fabric.mod.json.
  */
 public class SodiumCompat implements ConfigEntryPoint {
 

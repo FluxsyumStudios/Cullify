@@ -4,14 +4,15 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import static net.fabricmc.fabric.api.client.command.v2.ClientCommands.literal;
+import static net.fabricmc.fabric.api.client.command.v2.ClientCommands.argument;
+import com.mojang.brigadier.CommandDispatcher;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,7 +25,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-@EventBusSubscriber(modid = CullifyMod.MOD_ID, value = Dist.CLIENT)
 public class ClientEventHandler {
 
     /**
@@ -47,7 +47,7 @@ public class ClientEventHandler {
             existing.cancel(false);
         }
         ScheduledFuture<?> future = ASYNC_SAVER.schedule(() -> {
-            try { CullifyConfig.SPEC.save(); } catch (Throwable e) {}
+            try { CullifyConfig.save(); } catch (Throwable e) {}
         }, 2, TimeUnit.SECONDS);
         pendingSave.set(future);
     }
@@ -107,8 +107,7 @@ public class ClientEventHandler {
         public int lastSeenTick;
     }
 
-    @SubscribeEvent
-    public static void onRenderFrame(net.neoforged.neoforge.client.event.RenderFrameEvent.Pre event) {
+    public static void onRenderFrame() {
         com.fluxsyum.cullify.benchmark.BenchmarkManager.recordFrame();
 
         // Lock camera rotation during benchmark to perform identical cinematic rotation
@@ -133,9 +132,7 @@ public class ClientEventHandler {
         }
     }
 
-    @SubscribeEvent
-    public static void onClientTick(ClientTickEvent.Post event) {
-        Minecraft mc = Minecraft.getInstance();
+    public static void onClientTick(Minecraft mc) {
         LocalPlayer player = mc.player;
         ClientLevel level = mc.level;
 
@@ -330,17 +327,30 @@ public class ClientEventHandler {
         player.sendSystemMessage(Component.literal(message));
     }
 
-    @SubscribeEvent
-    public static void onRegisterCommands(RegisterClientCommandsEvent event) {
-        event.getDispatcher().register(
-            Commands.literal("cullify")
-                .then(Commands.literal("menu").executes(ctx -> {
+    public static void register() {
+        ClientTickEvents.END_CLIENT_TICK.register(mc -> {
+            onClientTick(mc);
+        });
+
+        LevelRenderEvents.START_MAIN.register(context -> {
+            onRenderFrame();
+        });
+
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
+            registerCommands(dispatcher);
+        });
+    }
+
+    public static void registerCommands(CommandDispatcher<net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource> dispatcher) {
+        dispatcher.register(
+            literal("cullify")
+                .then(literal("menu").executes(ctx -> {
                     Minecraft.getInstance().execute(() -> {
                         Minecraft.getInstance().setScreen(new com.fluxsyum.cullify.client.CullifyConfigScreen(null));
                     });
                     return 1;
                 }))
-                .then(Commands.literal("debug").executes(ctx -> {
+                .then(literal("debug").executes(ctx -> {
                     boolean newState = !CullifyConfig.DEBUG_MODE.get();
                     CullifyConfig.DEBUG_MODE.set(newState);
                     scheduleDebouncedSave();
@@ -352,7 +362,7 @@ public class ClientEventHandler {
                     }
                     return 1;
                 }))
-                .then(Commands.literal("reload").executes(ctx -> {
+                .then(literal("reload").executes(ctx -> {
                     sectionStates.clear();
                     CullifyMod.updateConfigCache();
                     CullifyMod.incrementConfigVersion();
@@ -364,7 +374,7 @@ public class ClientEventHandler {
                     }
                     return 1;
                 }))
-                .then(Commands.literal("stats").executes(ctx -> {
+                .then(literal("stats").executes(ctx -> {
                     Minecraft mc = Minecraft.getInstance();
                     LocalPlayer player = mc.player;
                     if (player != null) {
@@ -391,7 +401,7 @@ public class ClientEventHandler {
                     }
                     return 1;
                 }))
-                .then(Commands.literal("verbose").executes(ctx -> {
+                .then(literal("verbose").executes(ctx -> {
                     if (CullifyDebugManager.debugLevel == CullifyDebugManager.DebugLevel.VERBOSE) {
                         CullifyDebugManager.debugLevel = CullifyDebugManager.DebugLevel.BASIC;
                     } else {
@@ -406,29 +416,29 @@ public class ClientEventHandler {
                     }
                     return 1;
                 }))
-                .then(Commands.literal("benchmark")
-                    .then(Commands.literal("start")
-                        .then(Commands.argument("seconds", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1, 3600))
+                .then(literal("benchmark")
+                    .then(literal("start")
+                        .then(argument("seconds", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1, 3600))
                             .executes(context -> {
                                 int seconds = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(context, "seconds");
                                 if (com.fluxsyum.cullify.benchmark.BenchmarkManager.isRunning()) {
-                                    context.getSource().sendFailure(Component.literal("Benchmark is already running!"));
+                                    context.getSource().sendError(Component.literal("Benchmark is already running!"));
                                     return 0;
                                 }
                                 com.fluxsyum.cullify.benchmark.BenchmarkManager.start(seconds);
-                                context.getSource().sendSuccess(() -> Component.literal("§aStarted Cullify benchmark for " + seconds + " seconds."), false);
+                                context.getSource().sendFeedback(Component.literal("§aStarted Cullify benchmark for " + seconds + " seconds."));
                                 return 1;
                             })
                         )
                     )
-                    .then(Commands.literal("stop")
+                    .then(literal("stop")
                         .executes(context -> {
                             if (!com.fluxsyum.cullify.benchmark.BenchmarkManager.isRunning()) {
-                                context.getSource().sendFailure(Component.literal("No benchmark is currently running."));
+                                context.getSource().sendError(Component.literal("No benchmark is currently running."));
                                 return 0;
                             }
                             com.fluxsyum.cullify.benchmark.BenchmarkManager.stop();
-                            context.getSource().sendSuccess(() -> Component.literal("§eBenchmark stopped manually."), false);
+                            context.getSource().sendFeedback(Component.literal("§eBenchmark stopped manually."));
                             return 1;
                         })
                     )

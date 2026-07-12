@@ -1,6 +1,14 @@
 package com.fluxsyum.cullify;
 
-import net.neoforged.neoforge.common.ModConfigSpec;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import net.fabricmc.loader.api.FabricLoader;
+
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.nio.file.Path;
 
 public class CullifyConfig {
     public enum CullingShape {
@@ -14,87 +22,104 @@ public class CullifyConfig {
         CIRCLE
     }
 
-    public static final ModConfigSpec SPEC;
-    public static final ModConfigSpec.BooleanValue ENABLED;
-    public static final ModConfigSpec.EnumValue<CullingShape> CULLING_SHAPE;
-    public static final ModConfigSpec.BooleanValue CULL_GRASS;
-    public static final ModConfigSpec.BooleanValue CULL_FLOWERS;
-    public static final ModConfigSpec.BooleanValue CULL_OTHER_PLANTS;
-    public static final ModConfigSpec.IntValue GRASS_CULL_DISTANCE;
-    public static final ModConfigSpec.IntValue FLOWER_CULL_DISTANCE;
-    public static final ModConfigSpec.IntValue OTHER_PLANT_CULL_DISTANCE;
-    public static final ModConfigSpec.BooleanValue DEBUG_MODE;
-    public static final ModConfigSpec.IntValue LOD_DENSITY;
-    public static final ModConfigSpec.BooleanValue SMART_SCALE;
-    public static final ModConfigSpec.IntValue TARGET_FPS;
-    public static final ModConfigSpec.BooleanValue LIGHT_AWARE_CULLING;
+    public static final Property<Boolean> ENABLED = new Property<>(true);
+    public static final Property<CullingShape> CULLING_SHAPE = new Property<>(CullingShape.SPHERE);
+    public static final Property<Boolean> CULL_GRASS = new Property<>(true);
+    public static final Property<Boolean> CULL_FLOWERS = new Property<>(true);
+    public static final Property<Boolean> CULL_OTHER_PLANTS = new Property<>(true);
+    public static final Property<Integer> GRASS_CULL_DISTANCE = new Property<>(48);
+    public static final Property<Integer> FLOWER_CULL_DISTANCE = new Property<>(48);
+    public static final Property<Integer> OTHER_PLANT_CULL_DISTANCE = new Property<>(32);
+    public static final Property<Boolean> DEBUG_MODE = new Property<>(false);
+    public static final Property<Integer> LOD_DENSITY = new Property<>(100);
+    public static final Property<Boolean> SMART_SCALE = new Property<>(false);
+    public static final Property<Integer> TARGET_FPS = new Property<>(60);
+    public static final Property<Boolean> LIGHT_AWARE_CULLING = new Property<>(false);
 
-    static {
-        ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
-
-        builder.comment("Cullify general configuration options").push("general");
-
-        ENABLED = builder
-                .comment("Enable or disable vegetation culling globally.")
-                .define("enabled", true);
-
-        CULLING_SHAPE = builder
-                .comment("Shape of the culling boundary around the player (SPHERE, CYLINDER, BOX).")
-                .defineEnum("cullingShape", CullingShape.SPHERE);
-
-        CULL_GRASS = builder
-                .comment("Enable culling of grass, ferns, and short grass.")
-                .define("cullGrass", true);
-
-        CULL_FLOWERS = builder
-                .comment("Enable culling of flowers and double-height flowers.")
-                .define("cullFlowers", true);
-
-        CULL_OTHER_PLANTS = builder
-                .comment("Enable culling of other decorative plants (dead bushes, kelp, seagrass, etc.).")
-                .define("cullOtherPlants", true);
-
-        GRASS_CULL_DISTANCE = builder
-                .comment("Maximum distance in blocks to render grass, ferns, and tall grass.")
-                .defineInRange("grassCullDistance", 48, 0, 512);
-
-        FLOWER_CULL_DISTANCE = builder
-                .comment("Maximum distance in blocks to render flowers and double-height flowers.")
-                .defineInRange("flowerCullDistance", 48, 0, 512);
-
-        OTHER_PLANT_CULL_DISTANCE = builder
-                .comment("Maximum distance in blocks to render other decorative plants (dead bushes, kelp, seagrass, etc.).")
-                .defineInRange("otherPlantCullDistance", 32, 0, 512);
-
-        DEBUG_MODE = builder
-                .comment("Enable debug overlay HUD to show culling stats and configuration status.")
-                .define("debugMode", false);
-
-        LOD_DENSITY = builder
-                .comment("LOD density filter (0-100). 100 = keep all plants (disabled). Lower values thin out "
-                        + "plants near the culling boundary using a deterministic hash — no flickering. "
-                        + "50 = keep 50% of plants in the outer zone. Saves CPU at medium distances.")
-                .defineInRange("lodDensity", 100, 0, 100);
-
-        SMART_SCALE = builder
-                .comment("When enabled, automatically reduces culling distances when FPS drops below TARGET_FPS, "
-                        + "and slowly restores them when FPS recovers. Keeps frame rate stable in dense biomes.")
-                .define("smartScale", false);
-
-        TARGET_FPS = builder
-                .comment("Target frames per second for the Smart Scale system. "
-                        + "If current FPS falls below this, culling distances shrink to recover performance.")
-                .defineInRange("targetFps", 60, 30, 240);
-
-        LIGHT_AWARE_CULLING = builder
-                .comment("When enabled, culling distances shrink in dark areas (forests, caves, night) "
-                        + "proportionally to the ambient light level. Vegetation invisible in the dark is "
-                        + "culled much sooner, saving CPU and GPU with no visual impact.")
-                .define("lightAwareCulling", false);
-
-        builder.pop();
-        SPEC = builder.build();
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static File getConfigFile() {
+        Path configDir = FabricLoader.getInstance().getConfigDir();
+        return configDir.resolve("cullify.json").toFile();
     }
 
-}
+    public static void load() {
+        File file = getConfigFile();
+        if (!file.exists()) {
+            save();
+            return;
+        }
 
+        try (FileReader reader = new FileReader(file)) {
+            JsonObject json = GSON.fromJson(reader, JsonObject.class);
+            if (json == null) return;
+
+            if (json.has("enabled")) ENABLED.set(json.get("enabled").getAsBoolean());
+            if (json.has("cullingShape")) {
+                try {
+                    CULLING_SHAPE.set(CullingShape.valueOf(json.get("cullingShape").getAsString().toUpperCase()));
+                } catch (Exception ignored) {}
+            }
+            if (json.has("cullGrass")) CULL_GRASS.set(json.get("cullGrass").getAsBoolean());
+            if (json.has("cullFlowers")) CULL_FLOWERS.set(json.get("cullFlowers").getAsBoolean());
+            if (json.has("cullOtherPlants")) CULL_OTHER_PLANTS.set(json.get("cullOtherPlants").getAsBoolean());
+            if (json.has("grassCullDistance")) GRASS_CULL_DISTANCE.set(json.get("grassCullDistance").getAsInt());
+            if (json.has("flowerCullDistance")) FLOWER_CULL_DISTANCE.set(json.get("flowerCullDistance").getAsInt());
+            if (json.has("otherPlantCullDistance")) OTHER_PLANT_CULL_DISTANCE.set(json.get("otherPlantCullDistance").getAsInt());
+            if (json.has("debugMode")) DEBUG_MODE.set(json.get("debugMode").getAsBoolean());
+            if (json.has("lodDensity")) LOD_DENSITY.set(json.get("lodDensity").getAsInt());
+            if (json.has("smartScale")) SMART_SCALE.set(json.get("smartScale").getAsBoolean());
+            if (json.has("targetFps")) TARGET_FPS.set(json.get("targetFps").getAsInt());
+            if (json.has("lightAwareCulling")) LIGHT_AWARE_CULLING.set(json.get("lightAwareCulling").getAsBoolean());
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void save() {
+        File file = getConfigFile();
+        try {
+            File parent = file.getParentFile();
+            if (parent != null && !parent.exists()) {
+                parent.mkdirs();
+            }
+
+            JsonObject json = new JsonObject();
+            json.addProperty("enabled", ENABLED.get());
+            json.addProperty("cullingShape", CULLING_SHAPE.get().name());
+            json.addProperty("cullGrass", CULL_GRASS.get());
+            json.addProperty("cullFlowers", CULL_FLOWERS.get());
+            json.addProperty("cullOtherPlants", CULL_OTHER_PLANTS.get());
+            json.addProperty("grassCullDistance", GRASS_CULL_DISTANCE.get());
+            json.addProperty("flowerCullDistance", FLOWER_CULL_DISTANCE.get());
+            json.addProperty("otherPlantCullDistance", OTHER_PLANT_CULL_DISTANCE.get());
+            json.addProperty("debugMode", DEBUG_MODE.get());
+            json.addProperty("lodDensity", LOD_DENSITY.get());
+            json.addProperty("smartScale", SMART_SCALE.get());
+            json.addProperty("targetFps", TARGET_FPS.get());
+            json.addProperty("lightAwareCulling", LIGHT_AWARE_CULLING.get());
+
+            try (FileWriter writer = new FileWriter(file)) {
+                GSON.toJson(json, writer);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static class Property<T> {
+        private T value;
+
+        public Property(T defaultValue) {
+            this.value = defaultValue;
+        }
+
+        public T get() {
+            return this.value;
+        }
+
+        public void set(T newValue) {
+            this.value = newValue;
+        }
+    }
+}
