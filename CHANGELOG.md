@@ -2,6 +2,21 @@
 
 All notable changes to **Cullify** are documented here.
 
+## [1.4.0] - 2026-07-12
+
+### ✨ New Features
+* **🎬 Cinematic Benchmark Camera**: Added `/cullify benchmark start <seconds>`. The mod will now lock your movement and rotate the camera 360° automatically, ensuring perfectly accurate performance comparison tests.
+* **📊 Gorgeous Results Screen**: After finishing a benchmark, you are greeted with a beautiful glassmorphic screen showing your FPS gains, 1% Lows (stability), and how many plants were culled.
+
+### ⚡ Performance & Stability (Fewer Stutters!)
+* **🚶 Smooth Walking**: Increased the threshold for updating culled chunks. The game no longer aggressively rebuilds chunks with every step, completely removing stutters at higher render distances (like 12+ chunks).
+* **🧠 Rebuilt Culling System**: Replaced the old heavy memory grid with a smart bounding-box math system. This saves a huge amount of RAM and makes plant scanning hundreds of times faster.
+* **🧹 Micro-Stutter Fix**: Stopped allocating temporary blocks in memory during culling calculations. This prevents Java memory dumps, leading to much smoother frame rates.
+* **🚀 Faster Double-Tall Plants**: Caching properties of tall grass and large flowers is now instant, reducing CPU overhead in heavy biomes.
+* **💻 Less CPU Usage**: Background world checks now trigger less frequently, leaving more CPU power for actual rendering.
+
+---
+
 ## [1.3.1+mc1.21.1] - 2026-07-03
 
 ### ➕ Added / New Features
