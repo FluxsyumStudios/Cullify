@@ -8,9 +8,7 @@ import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.client.multiplayer.ClientLevel;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -26,9 +24,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(LevelRenderer.class)
 public class MixinLevelRenderer {
 
-    @Shadow
-    private ClientLevel level;
-
     @Inject(method = "renderHitOutline",
             at = @At("HEAD"),
             cancellable = true)
@@ -40,8 +35,6 @@ public class MixinLevelRenderer {
             BlockPos blockPos,
             BlockState blockState,
             CallbackInfo ci) {
-
-        if (this.level == null) return;
 
         if (CullifyConfig.ENABLED.get() && CullifyMod.hasPlayer) {
             if (CullifyMod.shouldCullNoCount(blockState, blockPos)) {

@@ -60,7 +60,7 @@ public class BenchmarkReportWriter {
         }
     }
 
-    public static java.io.File saveComparisonReport(List<Double> withoutTimes, List<Double> withTimes) {
+    public static File saveComparisonReport(List<Double> withoutTimes, List<Double> withTimes) {
         Metrics metricsWithout = Metrics.compute(withoutTimes);
         Metrics metricsWith = Metrics.compute(withTimes);
 

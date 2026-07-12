@@ -337,6 +337,11 @@ public class BenchmarkResultsScreen extends Screen {
     }
 
     @Override
+    public void onClose() {
+        this.minecraft.setScreen(this.parent);
+    }
+
+    @Override
     public void renderBackground(net.minecraft.client.gui.GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         if (this.minecraft.level != null) {
             this.renderBlurredBackground(partialTick);

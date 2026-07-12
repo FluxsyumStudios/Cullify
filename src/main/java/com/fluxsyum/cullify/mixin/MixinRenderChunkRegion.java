@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * Replaces culled plants with their fluid state when waterlogged.
  */
 @Mixin(RenderChunkRegion.class)
-public class MixinRenderSectionRegion {
+public class MixinRenderChunkRegion {
     @Inject(method = "getBlockState", at = @At("RETURN"), cancellable = true)
     private void cullify$onGetBlockState(BlockPos pos, CallbackInfoReturnable<BlockState> cir) {
         BlockState state = cir.getReturnValue();
