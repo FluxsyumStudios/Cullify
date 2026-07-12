@@ -336,7 +336,7 @@ public class CullifyConfigScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTicks) {
         this.currentSin = (float) Math.sin(System.currentTimeMillis() * 0.003);
-        this.extractBackground(graphics, mouseX, mouseY, partialTicks);
+        super.extractRenderState(graphics, mouseX, mouseY, partialTicks);
         
         int centerX = this.width / 2;
         int centerY = this.height / 2;
@@ -631,7 +631,7 @@ public class CullifyConfigScreen extends Screen {
         boolean doneHovered = mouseX >= doneX1 && mouseX <= doneX2 && mouseY >= doneY1 && mouseY <= doneY2;
         drawOptionCard(graphics, doneX1, doneY1, doneX2, doneY2, Component.translatable("gui.done"), doneHovered, true);
 
-        super.extractRenderState(graphics, mouseX, mouseY, partialTicks);
+
 
         if (activeTooltipTitle != null && activeTooltipDesc != null) {
             drawCustomTooltip(graphics, activeTooltipTitle, activeTooltipDesc, activeTooltipImpact, activeTooltipColor, mouseX, mouseY);
