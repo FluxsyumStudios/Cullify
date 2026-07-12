@@ -167,13 +167,6 @@ public class CullifyMod {
 
     private void onClientSetup(net.neoforged.fml.event.lifecycle.FMLClientSetupEvent event) {
         try {
-            Class.forName("toni.sodiumoptionsapi.api.OptionGUIConstruction", false, this.getClass().getClassLoader());
-            Class<?> compatClass = Class.forName("com.fluxsyum.cullify.compat.SodiumCompat");
-            compatClass.getMethod("registerOptions").invoke(null);
-        } catch (Throwable ignored) {
-        }
-
-        try {
             Class.forName("net.caffeinemc.mods.sodium.client.world.LevelSlice", false, this.getClass().getClassLoader());
             CullifyDebugManager.sodiumDetected = true;
         } catch (Throwable ignored) {
@@ -189,20 +182,16 @@ public class CullifyMod {
         }
     }
 
-    private static volatile boolean reloadScheduled = false;
+    public static volatile boolean reloadRequired = false;
 
+    /**
+     * Flags that a full re-render of all visible sections is required.
+     * The actual reload is deferred until the next client tick when no screen
+     * is open, preventing rendering issues if the config is changed while the
+     * game is paused.
+     */
     public static void scheduleWorldReload() {
-        if (reloadScheduled) return;
-        reloadScheduled = true;
-        Minecraft mc = Minecraft.getInstance();
-        if (mc != null) {
-            mc.execute(() -> {
-                reloadScheduled = false;
-                if (mc.levelRenderer != null) {
-                    mc.levelRenderer.allChanged();
-                }
-            });
-        }
+        reloadRequired = true;
     }
 
     // -----------------------------------------------------------------------
@@ -219,7 +208,8 @@ public class CullifyMod {
         Block block = state.getBlock();
 
         // 1. Direct block checks first (extremely fast reference comparisons)
-        if (block == Blocks.TALL_GRASS || block == Blocks.LARGE_FERN) {
+        if (block == Blocks.TALL_GRASS || block == Blocks.LARGE_FERN ||
+            block == Blocks.SHORT_GRASS || block == Blocks.FERN) {
             return PlantType.GRASS;
         }
 

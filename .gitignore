@@ -28,6 +28,10 @@ bin/
 
 ### VS Code ###
 .vscode/
+.claude/
+
+### Compiled class files ###
+*.class
 
 ### Mac OS ###
 .DS_Store
