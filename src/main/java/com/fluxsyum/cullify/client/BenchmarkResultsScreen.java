@@ -5,7 +5,7 @@ import com.fluxsyum.cullify.benchmark.BenchmarkReportWriter;
 import com.fluxsyum.cullify.benchmark.BenchmarkManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.sounds.SoundEvents;
@@ -109,7 +109,7 @@ public class BenchmarkResultsScreen extends Screen {
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTicks) {
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         this.currentSin = (float) Math.sin(System.currentTimeMillis() * 0.003);
         super.extractRenderState(graphics, mouseX, mouseY, partialTicks);
 
@@ -128,7 +128,7 @@ public class BenchmarkResultsScreen extends Screen {
         drawGlowingRect(graphics, mainX1, mainY1, mainX2, mainY2, 0xFF2ECC71);
 
         // Header Title
-        graphics.centeredText(this.font, Component.literal("§2§lCullify §a§lBenchmark Results"), centerX, mainY1 + 10, 0xFFFFFFFF);
+        graphics.drawCenteredString(this.font, Component.literal("§2§lCullify §a§lBenchmark Results"), centerX, mainY1 + 10, 0xFFFFFFFF);
 
         // Left Metrics Column
         int leftX = mainX1 + 15;
@@ -139,19 +139,19 @@ public class BenchmarkResultsScreen extends Screen {
 
         // Metrics Section Card
         drawSectionBackground(graphics, leftX, statsY, centerX - 10, mainY2 - 35);
-        graphics.text(this.font, Component.literal("§6§nComparative Stats"), leftX + 8, statsY + 6, 0xFFFFFFFF, false);
+        graphics.drawString(this.font, Component.literal("§6§nComparative Stats"), leftX + 8, statsY + 6, 0xFFFFFFFF, false);
 
         int rowY = statsY + 22;
-        graphics.text(this.font, Component.literal("Average FPS:"), leftX + 8, rowY, 0xFFE0E0E0, false);
-        graphics.text(this.font, Component.literal(String.format("§7Without: §f%.1f", this.metricsWithout.avgFps)), leftX + 16, rowY + 10, 0xFFFFFFFF, false);
-        graphics.text(this.font, Component.literal(String.format("§aWith:    §f%.1f", this.metricsWith.avgFps)), leftX + 16, rowY + 20, 0xFFFFFFFF, false);
-        graphics.text(this.font, Component.literal(String.format("§eGain:    §a%+.1f%%", gainAvg)), leftX + 16, rowY + 30, 0xFFFFFFFF, false);
+        graphics.drawString(this.font, Component.literal("Average FPS:"), leftX + 8, rowY, 0xFFE0E0E0, false);
+        graphics.drawString(this.font, Component.literal(String.format("§7Without: §f%.1f", this.metricsWithout.avgFps)), leftX + 16, rowY + 10, 0xFFFFFFFF, false);
+        graphics.drawString(this.font, Component.literal(String.format("§aWith:    §f%.1f", this.metricsWith.avgFps)), leftX + 16, rowY + 20, 0xFFFFFFFF, false);
+        graphics.drawString(this.font, Component.literal(String.format("§eGain:    §a%+.1f%%", gainAvg)), leftX + 16, rowY + 30, 0xFFFFFFFF, false);
 
         rowY += 45;
-        graphics.text(this.font, Component.literal("1% Low FPS (Stability):"), leftX + 8, rowY, 0xFFE0E0E0, false);
-        graphics.text(this.font, Component.literal(String.format("§7Without: §f%.1f", this.metricsWithout.low1Fps)), leftX + 16, rowY + 10, 0xFFFFFFFF, false);
-        graphics.text(this.font, Component.literal(String.format("§aWith:    §f%.1f", this.metricsWith.low1Fps)), leftX + 16, rowY + 20, 0xFFFFFFFF, false);
-        graphics.text(this.font, Component.literal(String.format("§eGain:    §a%+.1f%%", gain1)), leftX + 16, rowY + 30, 0xFFFFFFFF, false);
+        graphics.drawString(this.font, Component.literal("1% Low FPS (Stability):"), leftX + 8, rowY, 0xFFE0E0E0, false);
+        graphics.drawString(this.font, Component.literal(String.format("§7Without: §f%.1f", this.metricsWithout.low1Fps)), leftX + 16, rowY + 10, 0xFFFFFFFF, false);
+        graphics.drawString(this.font, Component.literal(String.format("§aWith:    §f%.1f", this.metricsWith.low1Fps)), leftX + 16, rowY + 20, 0xFFFFFFFF, false);
+        graphics.drawString(this.font, Component.literal(String.format("§eGain:    §a%+.1f%%", gain1)), leftX + 16, rowY + 30, 0xFFFFFFFF, false);
 
         // Right Chart Column
         int rightX1 = centerX + 10;
@@ -159,7 +159,7 @@ public class BenchmarkResultsScreen extends Screen {
         int chartY1 = statsY + 20;
         int chartY2 = mainY2 - 35;
 
-        graphics.text(this.font, Component.literal("§d§nFPS Stability Graph"), rightX1, statsY + 6, 0xFFFFFFFF, false);
+        graphics.drawString(this.font, Component.literal("§d§nFPS Stability Graph"), rightX1, statsY + 6, 0xFFFFFFFF, false);
 
         // Chart box background
         graphics.fill(rightX1, chartY1, rightX2, chartY2, 0x33000000);
@@ -179,16 +179,16 @@ public class BenchmarkResultsScreen extends Screen {
         drawFpsChartLine(graphics, rightX1, rightX2, chartY1, chartY2, this.chartPointsWith, 0xFF2ECC71);    // Green for With
 
         // Chart Labels
-        graphics.text(this.font, Component.literal(String.format("%.0f", this.maxFpsValue)), rightX1 + 4, chartY1 + 3, 0x66FFFFFF, false);
-        graphics.text(this.font, Component.literal(String.format("%.0f", this.minFpsValue)), rightX1 + 4, chartY2 - 11, 0x66FFFFFF, false);
+        graphics.drawString(this.font, Component.literal(String.format("%.0f", this.maxFpsValue)), rightX1 + 4, chartY1 + 3, 0x66FFFFFF, false);
+        graphics.drawString(this.font, Component.literal(String.format("%.0f", this.minFpsValue)), rightX1 + 4, chartY2 - 11, 0x66FFFFFF, false);
 
         // Bottom Legend under chart
         int legendY = chartY2 + 4;
         graphics.fill(rightX1, legendY + 3, rightX1 + 10, legendY + 5, 0xFFE74C3C);
-        graphics.text(this.font, Component.literal("Without"), rightX1 + 13, legendY, 0x88FFFFFF, false);
+        graphics.drawString(this.font, Component.literal("Without"), rightX1 + 13, legendY, 0x88FFFFFF, false);
 
         graphics.fill(rightX1 + 70, legendY + 3, rightX1 + 80, legendY + 5, 0xFF2ECC71);
-        graphics.text(this.font, Component.literal("With"), rightX1 + 83, legendY, 0x88FFFFFF, false);
+        graphics.drawString(this.font, Component.literal("With"), rightX1 + 83, legendY, 0x88FFFFFF, false);
 
         // Bottom Action Buttons
         int buttonY1 = mainY2 - 25;
@@ -208,7 +208,7 @@ public class BenchmarkResultsScreen extends Screen {
 
     }
 
-    private void drawFpsChartLine(GuiGraphicsExtractor graphics, int x1, int x2, int y1, int y2, List<Double> points, int color) {
+    private void drawFpsChartLine(GuiGraphics graphics, int x1, int x2, int y1, int y2, List<Double> points, int color) {
         if (points.size() < 2) return;
         int w = x2 - x1 - 2;
         int h = y2 - y1 - 4;
@@ -231,7 +231,7 @@ public class BenchmarkResultsScreen extends Screen {
         }
     }
 
-    private void drawLine(GuiGraphicsExtractor graphics, int x1, int y1, int x2, int y2, int color) {
+    private void drawLine(GuiGraphics graphics, int x1, int y1, int x2, int y2, int color) {
         int dx = Math.abs(x2 - x1);
         int dy = Math.abs(y2 - y1);
         int sx = x1 < x2 ? 1 : -1;
@@ -252,11 +252,11 @@ public class BenchmarkResultsScreen extends Screen {
         }
     }
 
-    private void drawSectionBackground(GuiGraphicsExtractor graphics, int x1, int y1, int x2, int y2) {
+    private void drawSectionBackground(GuiGraphics graphics, int x1, int y1, int x2, int y2) {
         graphics.fill(x1, y1, x2, y2, 0x11FFFFFF);
     }
 
-    private void drawButton(GuiGraphicsExtractor graphics, int x1, int y1, int x2, int y2, Component label, boolean isHovered) {
+    private void drawButton(GuiGraphics graphics, int x1, int y1, int x2, int y2, Component label, boolean isHovered) {
         graphics.fill(x1, y1, x2, y2, isHovered ? 0x22FFFFFF : 0x11FFFFFF);
         if (isHovered) {
             float pulse = 0.6F + 0.4F * this.currentSin;
@@ -266,10 +266,10 @@ public class BenchmarkResultsScreen extends Screen {
             graphics.fill(x1, y1, x1 + 1, y2, glowColor);
             graphics.fill(x2 - 1, y1, x2, y2, glowColor);
         }
-        graphics.centeredText(this.font, label, (x1 + x2) / 2, y1 + (y2 - y1 - 8) / 2, 0xFFFFFFFF);
+        graphics.drawCenteredString(this.font, label, (x1 + x2) / 2, y1 + (y2 - y1 - 8) / 2, 0xFFFFFFFF);
     }
 
-    private void drawGlowingRect(GuiGraphicsExtractor graphics, int x1, int y1, int x2, int y2, int color) {
+    private void drawGlowingRect(GuiGraphics graphics, int x1, int y1, int x2, int y2, int color) {
         int r = (color >> 16) & 0xFF;
         int g = (color >> 8) & 0xFF;
         int b = color & 0xFF;
@@ -290,9 +290,7 @@ public class BenchmarkResultsScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean handled) {
-        double mouseX = event.x();
-        double mouseY = event.y();
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
         int centerX = this.width / 2;
         int centerY = this.height / 2;
 
@@ -335,15 +333,15 @@ public class BenchmarkResultsScreen extends Screen {
             }
         }
 
-        return super.mouseClicked(event, handled);
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
-    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTicks) {
+    public void renderBackground(net.minecraft.client.gui.GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         if (this.minecraft.level != null) {
-            this.extractBlurredBackground(graphics);
+            this.renderBlurredBackground(partialTick);
         } else {
-            super.extractBackground(graphics, mouseX, mouseY, partialTicks);
+            super.renderBackground(graphics, mouseX, mouseY, partialTick);
         }
     }
 }

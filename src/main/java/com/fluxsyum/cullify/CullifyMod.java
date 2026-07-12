@@ -4,7 +4,7 @@ import com.fluxsyum.cullify.duck.CullifyBlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.state.BlockState;
@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class CullifyMod implements ClientModInitializer {
     public static final String MOD_ID = "cullify";
     public static String VERSION = "1.3.1";
-    public static final Identifier LOGO = Identifier.fromNamespaceAndPath(MOD_ID, "textures/gui/logo.png");
+    public static final ResourceLocation LOGO = ResourceLocation.fromNamespaceAndPath(MOD_ID, "textures/gui/logo.png");
 
     // -----------------------------------------------------------------------
     // Config version — incremented when settings change to invalidate caches.
@@ -212,8 +212,6 @@ public class CullifyMod implements ClientModInitializer {
         if (block instanceof LeavesBlock ||
             block instanceof SaplingBlock ||
             block instanceof MushroomBlock ||
-            block instanceof NetherFungusBlock ||
-            block instanceof FlowerBedBlock ||
             block instanceof CropBlock) {
             return PlantType.NONE;
         }
@@ -228,7 +226,7 @@ public class CullifyMod implements ClientModInitializer {
         }
 
         // 4. Fallback registry lookup for modded blocks
-        Identifier id = BuiltInRegistries.BLOCK.getKey(block);
+        ResourceLocation id = BuiltInRegistries.BLOCK.getKey(block);
         if (id == null) {
             return PlantType.NONE;
         }

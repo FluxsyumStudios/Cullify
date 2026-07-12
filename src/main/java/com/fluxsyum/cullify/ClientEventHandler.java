@@ -7,11 +7,11 @@ import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.Vec3;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
-import static net.fabricmc.fabric.api.client.command.v2.ClientCommands.literal;
-import static net.fabricmc.fabric.api.client.command.v2.ClientCommands.argument;
+import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal;
+import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.argument;
 import com.mojang.brigadier.CommandDispatcher;
 
 import java.util.ArrayList;
@@ -177,7 +177,7 @@ public class ClientEventHandler {
         Vec3 cameraPos;
         if (mc.gameRenderer != null && mc.gameRenderer.getMainCamera() != null &&
                 mc.gameRenderer.getMainCamera().isInitialized()) {
-            cameraPos = mc.gameRenderer.getMainCamera().position();
+            cameraPos = mc.gameRenderer.getMainCamera().getPosition();
         } else {
             cameraPos = player.position();
         }
@@ -332,7 +332,7 @@ public class ClientEventHandler {
             onClientTick(mc);
         });
 
-        LevelRenderEvents.START_MAIN.register(context -> {
+        WorldRenderEvents.START.register(context -> {
             onRenderFrame();
         });
 
@@ -469,8 +469,8 @@ public class ClientEventHandler {
         int pSecZ = ((int) cameraPos.z) >> 4;
         int secRange = ((int) maxDist + 16) >> 4;
 
-        int minSecY = level.getMinSectionY();
-        int maxSecY = level.getMaxSectionY() - 1;
+        int minSecY = level.getMinBuildHeight() >> 4;
+        int maxSecY = (level.getMaxBuildHeight() >> 4) - 1;
 
         double px = cameraPos.x;
         double py = cameraPos.y;

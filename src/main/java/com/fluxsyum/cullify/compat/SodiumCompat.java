@@ -9,7 +9,7 @@ import net.caffeinemc.mods.sodium.api.config.structure.ModOptionsBuilder;
 import net.caffeinemc.mods.sodium.api.config.structure.OptionGroupBuilder;
 import net.caffeinemc.mods.sodium.api.config.structure.OptionPageBuilder;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 
 /**
  * Registers Cullify's options natively into the Sodium 0.8.x config UI.
@@ -41,7 +41,7 @@ public class SodiumCompat implements ConfigEntryPoint {
         OptionGroupBuilder mainGroup = builder.createOptionGroup();
 
         // 1. Global Enable Toggle
-        mainGroup.addOption(builder.createBooleanOption(Identifier.fromNamespaceAndPath("cullify", "enabled"))
+        mainGroup.addOption(builder.createBooleanOption(ResourceLocation.fromNamespaceAndPath("cullify", "enabled"))
                 .setName(Component.translatable("cullify.options.enabled"))
                 .setTooltip(Component.translatable("cullify.options.enabled.tooltip"))
                 .setDefaultValue(true)
@@ -56,7 +56,7 @@ public class SodiumCompat implements ConfigEntryPoint {
         );
 
         // 2. Culling Shape
-        mainGroup.addOption(builder.createEnumOption(Identifier.fromNamespaceAndPath("cullify", "culling_shape"), CullifyConfig.CullingShape.class)
+        mainGroup.addOption(builder.createEnumOption(ResourceLocation.fromNamespaceAndPath("cullify", "culling_shape"), CullifyConfig.CullingShape.class)
                 .setName(Component.translatable("cullify.options.culling_shape"))
                 .setTooltip(Component.translatable("cullify.options.culling_shape.tooltip"))
                 .setDefaultValue(CullifyConfig.CullingShape.SPHERE)
@@ -72,7 +72,7 @@ public class SodiumCompat implements ConfigEntryPoint {
         );
 
         // 3. LOD Density Slider
-        mainGroup.addOption(builder.createIntegerOption(Identifier.fromNamespaceAndPath("cullify", "lod_density"))
+        mainGroup.addOption(builder.createIntegerOption(ResourceLocation.fromNamespaceAndPath("cullify", "lod_density"))
                 .setName(Component.translatable("cullify.menu.option.lod"))
                 .setTooltip(Component.translatable("cullify.menu.lod_density.tooltip"))
                 .setRange(0, 100, 5)
@@ -91,7 +91,7 @@ public class SodiumCompat implements ConfigEntryPoint {
         );
 
         // 4. Smart Scale Toggle
-        mainGroup.addOption(builder.createBooleanOption(Identifier.fromNamespaceAndPath("cullify", "smart_scale"))
+        mainGroup.addOption(builder.createBooleanOption(ResourceLocation.fromNamespaceAndPath("cullify", "smart_scale"))
                 .setName(Component.translatable("cullify.menu.option.smart_scale"))
                 .setTooltip(Component.translatable("cullify.menu.option.smart_scale.tooltip"))
                 .setDefaultValue(false)
@@ -106,7 +106,7 @@ public class SodiumCompat implements ConfigEntryPoint {
         );
 
         // 5. Target FPS Slider
-        mainGroup.addOption(builder.createIntegerOption(Identifier.fromNamespaceAndPath("cullify", "target_fps"))
+        mainGroup.addOption(builder.createIntegerOption(ResourceLocation.fromNamespaceAndPath("cullify", "target_fps"))
                 .setName(Component.translatable("cullify.menu.option.target_fps"))
                 .setTooltip(Component.translatable("cullify.menu.option.target_fps.tooltip"))
                 .setRange(30, 240, 10)
@@ -123,7 +123,7 @@ public class SodiumCompat implements ConfigEntryPoint {
         );
 
         // 6. Light-Aware Culling Toggle
-        mainGroup.addOption(builder.createBooleanOption(Identifier.fromNamespaceAndPath("cullify", "light_aware_culling"))
+        mainGroup.addOption(builder.createBooleanOption(ResourceLocation.fromNamespaceAndPath("cullify", "light_aware_culling"))
                 .setName(Component.translatable("cullify.menu.option.light_aware"))
                 .setTooltip(Component.translatable("cullify.menu.option.light_aware.tooltip"))
                 .setDefaultValue(false)
@@ -145,7 +145,7 @@ public class SodiumCompat implements ConfigEntryPoint {
         // Grass Group
         OptionGroupBuilder grassGroup = builder.createOptionGroup();
 
-        grassGroup.addOption(builder.createBooleanOption(Identifier.fromNamespaceAndPath("cullify", "cull_grass"))
+        grassGroup.addOption(builder.createBooleanOption(ResourceLocation.fromNamespaceAndPath("cullify", "cull_grass"))
                 .setName(Component.translatable("cullify.options.cull_grass"))
                 .setTooltip(Component.translatable("cullify.options.cull_grass.tooltip"))
                 .setDefaultValue(true)
@@ -159,7 +159,7 @@ public class SodiumCompat implements ConfigEntryPoint {
                 )
         );
 
-        grassGroup.addOption(builder.createIntegerOption(Identifier.fromNamespaceAndPath("cullify", "grass_distance"))
+        grassGroup.addOption(builder.createIntegerOption(ResourceLocation.fromNamespaceAndPath("cullify", "grass_distance"))
                 .setName(Component.translatable("cullify.options.grass_distance"))
                 .setTooltip(Component.translatable("cullify.options.grass_distance.tooltip"))
                 .setRange(16, 256, 8)
@@ -180,7 +180,7 @@ public class SodiumCompat implements ConfigEntryPoint {
         // Flowers Group
         OptionGroupBuilder flowerGroup = builder.createOptionGroup();
 
-        flowerGroup.addOption(builder.createBooleanOption(Identifier.fromNamespaceAndPath("cullify", "cull_flowers"))
+        flowerGroup.addOption(builder.createBooleanOption(ResourceLocation.fromNamespaceAndPath("cullify", "cull_flowers"))
                 .setName(Component.translatable("cullify.options.cull_flowers"))
                 .setTooltip(Component.translatable("cullify.options.cull_flowers.tooltip"))
                 .setDefaultValue(true)
@@ -194,7 +194,7 @@ public class SodiumCompat implements ConfigEntryPoint {
                 )
         );
 
-        flowerGroup.addOption(builder.createIntegerOption(Identifier.fromNamespaceAndPath("cullify", "flower_distance"))
+        flowerGroup.addOption(builder.createIntegerOption(ResourceLocation.fromNamespaceAndPath("cullify", "flower_distance"))
                 .setName(Component.translatable("cullify.options.flower_distance"))
                 .setTooltip(Component.translatable("cullify.options.flower_distance.tooltip"))
                 .setRange(16, 256, 8)
@@ -215,7 +215,7 @@ public class SodiumCompat implements ConfigEntryPoint {
         // Other Plants Group
         OptionGroupBuilder otherGroup = builder.createOptionGroup();
 
-        otherGroup.addOption(builder.createBooleanOption(Identifier.fromNamespaceAndPath("cullify", "cull_other_plants"))
+        otherGroup.addOption(builder.createBooleanOption(ResourceLocation.fromNamespaceAndPath("cullify", "cull_other_plants"))
                 .setName(Component.translatable("cullify.options.cull_other_plants"))
                 .setTooltip(Component.translatable("cullify.options.cull_other_plants.tooltip"))
                 .setDefaultValue(true)
@@ -229,7 +229,7 @@ public class SodiumCompat implements ConfigEntryPoint {
                 )
         );
 
-        otherGroup.addOption(builder.createIntegerOption(Identifier.fromNamespaceAndPath("cullify", "other_distance"))
+        otherGroup.addOption(builder.createIntegerOption(ResourceLocation.fromNamespaceAndPath("cullify", "other_distance"))
                 .setName(Component.translatable("cullify.options.other_distance"))
                 .setTooltip(Component.translatable("cullify.options.other_distance.tooltip"))
                 .setRange(16, 256, 8)
@@ -250,7 +250,7 @@ public class SodiumCompat implements ConfigEntryPoint {
         // Debug Group
         OptionGroupBuilder debugGroup = builder.createOptionGroup();
 
-        debugGroup.addOption(builder.createBooleanOption(Identifier.fromNamespaceAndPath("cullify", "debug_mode"))
+        debugGroup.addOption(builder.createBooleanOption(ResourceLocation.fromNamespaceAndPath("cullify", "debug_mode"))
                 .setName(Component.translatable("cullify.options.debug_mode"))
                 .setTooltip(Component.translatable("cullify.options.debug_mode.tooltip"))
                 .setDefaultValue(false)

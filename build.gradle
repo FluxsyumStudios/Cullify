@@ -13,6 +13,7 @@ base {
 repositories {
     maven { url = "https://maven.fabricmc.net/" }
     maven { url = "https://api.modrinth.com/maven" }
+    maven { url = "https://maven.caffeinemc.net/releases" }
 }
 
 dependencies {
@@ -21,9 +22,10 @@ dependencies {
     modImplementation "net.fabricmc:fabric-loader:${project.fabric_loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 
-    // Sodium and Sodium Options API dependencies (compiled on Fabric)
-    modCompileOnly "maven.modrinth:sodium:mc1.21.1-0.6.13-fabric"
-    modCompileOnly "maven.modrinth:sodium-options-api:fabric-1.21.1-1.0.10"
+    // Sodium 0.8.12 (latest stable for 1.21.1) - includes built-in Config API
+    modCompileOnly "maven.modrinth:sodium:mc1.21.1-0.8.12-fabric"
+    // CaffeineMC Config API for compile-time access to Sodium Config API classes
+    modCompileOnly "net.caffeinemc:sodium-fabric-api:0.8.12+mc1.21.1"
 
     // Load and remap all local mods for runtime testing in the dev environment
     modLocalRuntime fileTree(dir: 'localmods', include: ['*.jar'])

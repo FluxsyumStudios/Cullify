@@ -9,7 +9,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.renderer.state.level.BlockOutlineRenderState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -36,15 +35,13 @@ public class MixinLevelRenderer {
     private void cullify$onRenderHitOutline(
             PoseStack poseStack,
             VertexConsumer vertexConsumer,
+            Entity entity,
             double cameraX, double cameraY, double cameraZ,
-            BlockOutlineRenderState outlineState,
-            int lightmap,
-            float partialTick,
+            BlockPos blockPos,
+            BlockState blockState,
             CallbackInfo ci) {
 
         if (this.level == null) return;
-        BlockPos blockPos = outlineState.pos();
-        BlockState blockState = this.level.getBlockState(blockPos);
 
         if (CullifyConfig.ENABLED.get() && CullifyMod.hasPlayer) {
             if (CullifyMod.shouldCullNoCount(blockState, blockPos)) {
