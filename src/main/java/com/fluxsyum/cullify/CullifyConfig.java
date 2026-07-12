@@ -24,6 +24,10 @@ public class CullifyConfig {
     public static final ForgeConfigSpec.IntValue FLOWER_CULL_DISTANCE;
     public static final ForgeConfigSpec.IntValue OTHER_PLANT_CULL_DISTANCE;
     public static final ForgeConfigSpec.BooleanValue DEBUG_MODE;
+    public static final ForgeConfigSpec.IntValue LOD_DENSITY;
+    public static final ForgeConfigSpec.BooleanValue SMART_SCALE;
+    public static final ForgeConfigSpec.IntValue TARGET_FPS;
+    public static final ForgeConfigSpec.BooleanValue LIGHT_AWARE_CULLING;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -66,9 +70,23 @@ public class CullifyConfig {
                 .comment("Enable debug overlay HUD to show culling stats and configuration status.")
                 .define("debugMode", false);
 
+        LOD_DENSITY = builder
+                .comment("Percentage of sparse blocks to render at outer limits (0-100). 100 = disabled.")
+                .defineInRange("lodDensity", 100, 0, 100);
+
+        SMART_SCALE = builder
+                .comment("Auto-adjust culling distances dynamically to maintain target frame rates.")
+                .define("smartScale", false);
+
+        TARGET_FPS = builder
+                .comment("Target framerate for Smart Scale adjustments.")
+                .defineInRange("targetFps", 60, 10, 500);
+
+        LIGHT_AWARE_CULLING = builder
+                .comment("Auto-reduce culling distances in darker, light-blocked environments (caves/night).")
+                .define("lightAwareCulling", false);
+
         builder.pop();
         SPEC = builder.build();
     }
-
 }
-

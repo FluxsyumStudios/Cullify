@@ -5,6 +5,8 @@ import com.fluxsyum.cullify.duck.CullifyBlockState;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.material.FluidState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -31,6 +33,9 @@ public abstract class MixinBlockState implements CullifyBlockState {
 
     @Unique
     private volatile BlockState cullify$fluidBlockStateCached;
+
+    @Unique
+    private volatile Boolean cullify$isDoubleBlockUpperHalfCached;
 
     @Override
     @Unique
@@ -68,6 +73,19 @@ public abstract class MixinBlockState implements CullifyBlockState {
                 cached = fluidState.createLegacyBlock();
             }
             this.cullify$fluidBlockStateCached = cached;
+        }
+        return cached;
+    }
+
+    @Override
+    @Unique
+    public boolean cullify$isDoubleBlockUpperHalf() {
+        Boolean cached = this.cullify$isDoubleBlockUpperHalfCached;
+        if (cached == null) {
+            BlockState state = (BlockState) (Object) this;
+            cached = state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF) &&
+                     state.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF) == DoubleBlockHalf.UPPER;
+            this.cullify$isDoubleBlockUpperHalfCached = cached;
         }
         return cached;
     }

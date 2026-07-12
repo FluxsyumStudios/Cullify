@@ -28,4 +28,10 @@ public interface CullifyBlockState {
      * Cached lazily.
      */
     BlockState cullify$getFluidBlockState();
+
+    /**
+     * Returns true if this block is the upper half of a double block.
+     * Cached lazily.
+     */
+    boolean cullify$isDoubleBlockUpperHalf();
 }

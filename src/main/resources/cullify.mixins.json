@@ -12,7 +12,8 @@
     "MixinLevelSlice",
     "MixinLevelRenderer",
     "MixinLevelRendererDrawCalls",
-    "LevelRendererAccessor"
+    "LevelRendererAccessor",
+    "MinecraftAccessor"
   ],
   "injectors": {
     "defaultRequire": 1
