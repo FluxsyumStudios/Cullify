@@ -1,6 +1,5 @@
 package com.fluxsyum.cullify.benchmark;
 
-import com.mojang.blaze3d.platform.GlUtil;
 import net.minecraft.client.Minecraft;
 import org.lwjgl.opengl.GL11;
 

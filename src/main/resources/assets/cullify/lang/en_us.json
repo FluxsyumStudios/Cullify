@@ -30,6 +30,7 @@
   "cullify.menu.title": "Cullify Options",
   "key.cullify.config": "Open Cullify Menu",
   "key.categories.cullify": "Cullify",
+  "key.category.cullify.cullify": "Cullify",
   "cullify.benchmark.click_to_open": "Click to open the benchmark report",
   "cullify.benchmark.completed": "[Cullify] Benchmark completed! Saved to: %s",
   "cullify.menu.tab.general": "General",

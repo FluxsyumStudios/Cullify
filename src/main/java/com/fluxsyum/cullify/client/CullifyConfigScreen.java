@@ -933,8 +933,4 @@ public class CullifyConfigScreen extends Screen {
         this.minecraft.setScreen(this.parent);
     }
 
-    @Override
-    public void renderBackground(GuiGraphics graphics) {
-        super.renderBackground(graphics);
-    }
 }

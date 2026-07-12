@@ -15,6 +15,8 @@ import net.minecraftforge.client.event.RegisterClientCommandsEvent;
 import com.fluxsyum.cullify.command.CullifyCommands;
 
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -269,6 +271,7 @@ public class ClientEventHandler {
             lastLightAware   = lightAware;
 
             sectionStates.clear();
+            CullifyMod.sectionLightFactors.clear();
             scheduleDebouncedSave();
             CullifyMod.updateConfigCache();
             CullifyMod.incrementConfigVersion();
@@ -431,16 +434,24 @@ public class ClientEventHandler {
         }
     }
 
+    /**
+     * Called from the background classifier thread. Computes which sections have
+     * changed culling state, collects dirty positions, and dispatches the actual
+     * {@code setSectionDirty} calls back to the main thread to preserve render-thread safety.
+     */
     private static void checkChunkTransitions(Minecraft mc, ClientLevel level, Vec3 cameraPos) {
-        double grassDist = CullifyMod.cachedGrassDistScaled;
-        double flowerDist = CullifyMod.cachedFlowerDistScaled;
-        double otherDist = CullifyMod.cachedOtherDistScaled;
+        // Use Smart-Scale-adjusted distances so section classification matches
+        // the radii actually used for per-block culling (-1 = type disabled)
+        double grassDist  = CullifyMod.cachedCullGrass   ? CullifyMod.cachedGrassDistScaled  : -1;
+        double flowerDist = CullifyMod.cachedCullFlowers  ? CullifyMod.cachedFlowerDistScaled : -1;
+        double otherDist  = CullifyMod.cachedCullOther    ? CullifyMod.cachedOtherDistScaled  : -1;
+
         double maxDist = Math.max(grassDist, Math.max(flowerDist, otherDist));
+        if (maxDist < 0) return;
 
         int pSecX = ((int) cameraPos.x) >> 4;
         int pSecY = ((int) cameraPos.y) >> 4;
         int pSecZ = ((int) cameraPos.z) >> 4;
-
         int secRange = ((int) maxDist + 16) >> 4;
 
         LevelRenderer levelRenderer = mc.levelRenderer;
@@ -462,6 +473,10 @@ public class ClientEventHandler {
 
         final int activeTick = tickCounter;
 
+        // Collect sections that need a render rebuild; dispatched to main thread below
+        List<Long> dirtyPositions = new ArrayList<>();
+        net.minecraft.core.BlockPos.MutableBlockPos mutablePos = new net.minecraft.core.BlockPos.MutableBlockPos();
+
         for (int sx = pSecX - secRange; sx <= pSecX + secRange; sx++) {
             double minX = sx << 4;
             double maxX = minX + 16.0;
@@ -469,8 +484,12 @@ public class ClientEventHandler {
             double farDx = px < minX + 8.0 ? maxX - px : px - minX;
 
             for (int sz = pSecZ - secRange; sz <= pSecZ + secRange; sz++) {
-                if (!level.getChunkSource().hasChunk(sx, sz)) {
-                    continue;
+                try {
+                    if (!level.getChunkSource().hasChunk(sx, sz)) {
+                        continue;
+                    }
+                } catch (Exception e) {
+                    continue; // Chunk source modified concurrently or level closed, skip safely
                 }
                 double minZ = sz << 4;
                 double maxZ = minZ + 16.0;
@@ -482,33 +501,6 @@ public class ClientEventHandler {
                     double maxY = minY + 16.0;
                     double nearDy = py < minY ? minY - py : (py > maxY ? py - maxY : 0.0);
                     double farDy = py < minY + 8.0 ? maxY - py : py - minY;
-
-                    // Light-Aware Culling: pre-calculate section light factors on background thread
-                    if (CullifyMod.cachedLightAware) {
-                        long secKey = net.minecraft.core.SectionPos.asLong(sx, sy, sz);
-                        if (!CullifyMod.sectionLightFactors.containsKey(secKey)) {
-                            // Compute average block light for the section
-                            long sumLight = 0;
-                            long count = 0;
-                            int startX = sx << 4;
-                            int startY = sy << 4;
-                            int startZ = sz << 4;
-                            // Step by 4 blocks to sample 64 points per section
-                            for (int bx = 2; bx < 16; bx += 4) {
-                                for (int by = 2; by < 16; by += 4) {
-                                    for (int bz = 2; bz < 16; bz += 4) {
-                                        net.minecraft.core.BlockPos samplePos = new net.minecraft.core.BlockPos(startX + bx, startY + by, startZ + bz);
-                                        sumLight += level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, samplePos);
-                                        count++;
-                                    }
-                                }
-                            }
-                            float avgBlockLight = (float) sumLight / count;
-                            // Scale factor: 1.0 in bright areas, down to 0.4 in caves/darkness
-                            float lightFactor = 0.4f + 0.6f * (avgBlockLight / 15.0f);
-                            CullifyMod.sectionLightFactors.put(secKey, lightFactor);
-                        }
-                    }
 
                     byte gState = classifySection(nearDx, farDx, nearDy, farDy, nearDz, farDz, grassDist);
                     byte fState = classifySection(nearDx, farDx, nearDy, farDy, nearDz, farDz, flowerDist);
@@ -541,12 +533,12 @@ public class ClientEventHandler {
                             secState.lastRebuildX = px;
                             secState.lastRebuildY = py;
                             secState.lastRebuildZ = pz;
-                        }
-                        else if (gState == 0 || fState == 0 || oState == 0) {
+                        } else if (gState == 0 || fState == 0 || oState == 0) {
                             double rDx = px - secState.lastRebuildX;
                             double rDy = py - secState.lastRebuildY;
                             double rDz = pz - secState.lastRebuildZ;
-                            if (rDx * rDx + rDy * rDy + rDz * rDz > 4.0) {
+                            // Wait for player to move 6 blocks before rebuilding partially culled sections
+                            if (rDx * rDx + rDy * rDy + rDz * rDz > 36.0) {
                                 rebuild = true;
                                 secState.lastRebuildX = px;
                                 secState.lastRebuildY = py;
@@ -556,27 +548,63 @@ public class ClientEventHandler {
                     }
 
                     if (rebuild) {
-                        final int finalSx = sx;
-                        final int finalSy = sy;
-                        final int finalSz = sz;
-                        // LevelRenderer operations must run on main thread
-                        mc.execute(() -> {
-                            if (mc.levelRenderer != null) {
-                                accessor.invokeSetSectionDirty(finalSx, finalSy, finalSz, false);
-                            }
-                        });
-                        CullifyDebugManager.chunkUpdates.increment();
+                        dirtyPositions.add(posLong);
                     }
+
+                    // Light-Aware Culling: compute section light importance factor
+                    if (CullifyMod.cachedLightAware) {
+                        try {
+                            // Sample brightness at the center block of this section
+                            int cx = (sx << 4) + 8;
+                            int cy = (sy << 4) + 8;
+                            int cz = (sz << 4) + 8;
+                            mutablePos.set(cx, cy, cz);
+                            int sky   = level.getBrightness(net.minecraft.world.level.LightLayer.SKY, mutablePos);
+                            int block = level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, mutablePos);
+                            // Weight sky light more heavily — a single torch should not fully restore distance
+                            float importance = (0.75f * sky + 0.25f * block) / 15.0f;
+                            // Clamp to [0.3, 1.0]: fully dark = 30% of configured distance; full sun = 100%
+                            float lightFactor = Math.min(1.0f, Math.max(0.3f, 0.3f + 0.7f * importance));
+                            Float existing = CullifyMod.sectionLightFactors.get(posLong);
+                            if (existing == null || Math.abs(existing - lightFactor) > 0.04f) {
+                                CullifyMod.sectionLightFactors.put(posLong, lightFactor);
+                                // Trigger a re-render so the new effective radius takes effect
+                                if (!rebuild) dirtyPositions.add(posLong);
+                            }
+                        } catch (Exception ignored) {
+                            // Section may not be fully loaded — skip safely
+                        }
+                    }
+
                 }
             }
         }
 
+        // Evict stale entries (safe on ConcurrentHashMap)
         if (activeTick % 20 == 0) {
-            sectionStates.entrySet().removeIf(entry -> entry.getValue().lastSeenTick != activeTick);
-            // Clear light factor cache periodically to adapt to torch placement/destruction
-            if (activeTick % 100 == 0) {
-                CullifyMod.sectionLightFactors.clear();
+            sectionStates.entrySet().removeIf(entry -> (activeTick - entry.getValue().lastSeenTick) > 20);
+            // Also evict light factors for sections no longer tracked
+            if (CullifyMod.cachedLightAware) {
+                CullifyMod.sectionLightFactors.keySet().retainAll(sectionStates.keySet());
             }
+        }
+
+        // Dispatch dirty-marking to the main/render thread — invokeSetSectionDirty is not thread-safe
+        if (!dirtyPositions.isEmpty()) {
+            mc.execute(() -> {
+                LevelRenderer lr = mc.levelRenderer;
+                if (lr == null) return;
+                com.fluxsyum.cullify.mixin.LevelRendererAccessor acc =
+                    (com.fluxsyum.cullify.mixin.LevelRendererAccessor) lr;
+                if (acc.getViewArea() == null) return;
+                for (long packed : dirtyPositions) {
+                    int dx = net.minecraft.core.SectionPos.x(packed);
+                    int dy = net.minecraft.core.SectionPos.y(packed);
+                    int dz = net.minecraft.core.SectionPos.z(packed);
+                    acc.invokeSetSectionDirty(dx, dy, dz, false);
+                    CullifyDebugManager.chunkUpdates.increment();
+                }
+            });
         }
     }
 

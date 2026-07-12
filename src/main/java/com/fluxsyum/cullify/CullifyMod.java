@@ -236,6 +236,10 @@ public class CullifyMod {
             return PlantType.NONE;
         }
 
+        if (block instanceof BushBlock) {
+            return PlantType.OTHER;
+        }
+
         // 3. Flower Tag Check
         if (state.is(BlockTags.FLOWERS)) {
             return PlantType.FLOWER;
