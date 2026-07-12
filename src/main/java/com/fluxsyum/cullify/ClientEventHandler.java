@@ -12,6 +12,8 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.client.event.RegisterClientCommandsEvent;
+import com.fluxsyum.cullify.command.CullifyCommands;
+
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -107,6 +109,33 @@ public class ClientEventHandler {
     }
 
     @SubscribeEvent
+    public static void onRenderTick(TickEvent.RenderTickEvent event) {
+        if (event.phase == TickEvent.Phase.START) {
+            com.fluxsyum.cullify.benchmark.BenchmarkManager.recordFrame();
+
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.player != null && com.fluxsyum.cullify.benchmark.BenchmarkManager.isRunning()) {
+                com.fluxsyum.cullify.benchmark.BenchmarkManager.State bState = com.fluxsyum.cullify.benchmark.BenchmarkManager.getState();
+                float currentYaw = com.fluxsyum.cullify.benchmark.BenchmarkManager.startYaw;
+
+                if (bState == com.fluxsyum.cullify.benchmark.BenchmarkManager.State.RUNNING_WITHOUT ||
+                    bState == com.fluxsyum.cullify.benchmark.BenchmarkManager.State.RUNNING_WITH) {
+                    long elapsed = System.currentTimeMillis() - com.fluxsyum.cullify.benchmark.BenchmarkManager.getPhaseStartTimeMillis();
+                    long duration = com.fluxsyum.cullify.benchmark.BenchmarkManager.getPhaseDurationMillis();
+                    float progress = duration > 0 ? (float) elapsed / duration : 0.0f;
+                    progress = Math.min(1.0f, Math.max(0.0f, progress));
+                    currentYaw = com.fluxsyum.cullify.benchmark.BenchmarkManager.startYaw + progress * 360.0f;
+                }
+
+                mc.player.setYRot(currentYaw);
+                mc.player.yRotO = currentYaw;
+                mc.player.setXRot(0.0f);
+                mc.player.xRotO = 0.0f;
+            }
+        }
+    }
+
+    @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) {
             return;
@@ -121,6 +150,17 @@ public class ClientEventHandler {
             initialized = false;
             sectionStates.clear();
             return;
+        }
+
+        // Lock position and reset velocity during benchmark to keep player in the same spot
+        if (com.fluxsyum.cullify.benchmark.BenchmarkManager.isRunning()) {
+            player.setPos(com.fluxsyum.cullify.benchmark.BenchmarkManager.startX,
+                           com.fluxsyum.cullify.benchmark.BenchmarkManager.startY,
+                           com.fluxsyum.cullify.benchmark.BenchmarkManager.startZ);
+            player.setDeltaMovement(0, 0, 0);
+            player.xxa = 0.0f;
+            player.yya = 0.0f;
+            player.zza = 0.0f;
         }
 
         // Deferred reload check: only reload chunks when no screen is open (game is unpaused)
@@ -153,6 +193,9 @@ public class ClientEventHandler {
         CullifyMod.playerX = cameraPos.x;
         CullifyMod.playerY = cameraPos.y;
         CullifyMod.playerZ = cameraPos.z;
+        // IMPORTANT: hasPlayer must be set TRUE *before* the initialized check,
+        // otherwise the early return on first tick leaves hasPlayer=false and culling
+        // never activates until the second tick — or at all, if config reads are wrong.
         CullifyMod.hasPlayer = true;
 
         if (!initialized) {
@@ -178,7 +221,11 @@ public class ClientEventHandler {
             smartScaleTickCounter = 0;
             CullifyMod.updateConfigCache();
             CullifyDebugManager.syncFromConfig();
-            return;
+            // Trigger a full world reload so chunks already loaded when the player joined
+            // get re-meshed with culling active. Without this, only newly-loaded chunks get culled.
+            CullifyMod.incrementConfigVersion();
+            CullifyMod.scheduleWorldReload();
+            // Do NOT return early — fall through to the movement tick below.
         }
 
         // Detect configuration changes to trigger re-renders
@@ -249,6 +296,9 @@ public class ClientEventHandler {
                 }
             }
         }
+
+        // Benchmark tick update
+        com.fluxsyum.cullify.benchmark.BenchmarkManager.checkTime();
 
         debugTickCounter++;
         if (debugTickCounter >= 20) {
@@ -357,6 +407,9 @@ public class ClientEventHandler {
                     return 1;
                 }))
         );
+
+        // Register benchmark sub-commands
+        CullifyCommands.register(event.getDispatcher());
     }
 
     private static void queueChunkTransitions(Minecraft mc, ClientLevel level, Vec3 cameraPos) {

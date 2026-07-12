@@ -17,12 +17,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * Optimizes culling for Sodium's LevelSlice by classifying the 27 adjacent chunk sections
  * into FULLY_CULLED, FULLY_KEPT, or STRADDLING states to avoid per-block calculations.
  */
-@Mixin(targets = "me.jellysquid.mods.sodium.client.world.LevelSlice")
+@Mixin(targets = "me.jellysquid.mods.sodium.client.world.WorldSlice")
 public class MixinLevelSlice {
 
-    @Shadow(remap = false) private int originBlockX;
-    @Shadow(remap = false) private int originBlockY;
-    @Shadow(remap = false) private int originBlockZ;
+    @Shadow(remap = false) private int originX;
+    @Shadow(remap = false) private int originY;
+    @Shadow(remap = false) private int originZ;
 
     private static final byte STRADDLING = 0;
     private static final byte FULLY_KEPT = 1;
@@ -53,7 +53,7 @@ public class MixinLevelSlice {
     }
 
     // Primary getBlockState hook for block coordinate lookup
-    @Inject(method = "getBlockState(III)Lnet/minecraft/world/level/block/state/BlockState;",
+    @Inject(method = {"getBlockState", "m_62982_"},
             at = @At("RETURN"), cancellable = true, remap = false)
     private void cullify$onGetBlockStateCoords(int x, int y, int z, CallbackInfoReturnable<BlockState> cir) {
         if (!CullifyMod.cachedEnabled || !CullifyMod.hasPlayer) {
@@ -66,23 +66,34 @@ public class MixinLevelSlice {
         CullifyMod.PlantType type = ((CullifyBlockState) (Object) state).cullify$getPlantType();
         if (type == CullifyMod.PlantType.NONE) return;
 
-        int lx = (x - originBlockX) >> 4;
-        int ly = (y - originBlockY) >> 4;
-        int lz = (z - originBlockZ) >> 4;
+        int lx = (x - originX) >> 4;
+        int ly = (y - originY) >> 4;
+        int lz = (z - originZ) >> 4;
 
         boolean inBounds = lx >= 0 && lx <= 2 && ly >= 0 && ly <= 2 && lz >= 0 && lz <= 2;
         int sectionIdx = inBounds ? (ly * 9 + lz * 3 + lx) : -1;
+
+        boolean benchmark = com.fluxsyum.cullify.benchmark.BenchmarkManager.isRunning();
+        if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.blocksTested.increment();
 
         if (cullify$cacheValid && cullify$lastConfigVersion == CullifyMod.configVersion && inBounds) {
             byte cacheState = cullify$getCacheState(type, sectionIdx);
 
             if (cacheState == FULLY_CULLED) {
                 CullifyDebugManager.culledBlocks.increment();
+                if (benchmark) {
+                    com.fluxsyum.cullify.benchmark.BenchmarkManager.blocksCulled.increment();
+                    com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheHits.increment();
+                }
                 cir.setReturnValue(CullifyMod.getCulledState(state));
                 return;
             } else if (cacheState == FULLY_KEPT) {
+                if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheHits.increment();
                 return;
             }
+            if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheMisses.increment();
+        } else {
+            if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheMisses.increment();
         }
 
         float lightFactor = 1.0f;
@@ -100,12 +111,13 @@ public class MixinLevelSlice {
         }
 
         if (CullifyMod.shouldCull(state, x, y, z, lightFactor)) {
+            if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.blocksCulled.increment();
             cir.setReturnValue(CullifyMod.getCulledState(state));
         }
     }
 
     // Secondary getBlockState hook for BlockPos lookup
-    @Inject(method = "getBlockState(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/block/state/BlockState;",
+    @Inject(method = {"getBlockState", "m_8055_"},
             at = @At("RETURN"), cancellable = true, remap = false)
     private void cullify$onGetBlockStatePos(net.minecraft.core.BlockPos pos, CallbackInfoReturnable<BlockState> cir) {
         if (!CullifyMod.cachedEnabled || !CullifyMod.hasPlayer) {
@@ -122,23 +134,34 @@ public class MixinLevelSlice {
         int y = pos.getY();
         int z = pos.getZ();
 
-        int lx = (x - originBlockX) >> 4;
-        int ly = (y - originBlockY) >> 4;
-        int lz = (z - originBlockZ) >> 4;
+        int lx = (x - originX) >> 4;
+        int ly = (y - originY) >> 4;
+        int lz = (z - originZ) >> 4;
 
         boolean inBounds = lx >= 0 && lx <= 2 && ly >= 0 && ly <= 2 && lz >= 0 && lz <= 2;
         int sectionIdx = inBounds ? (ly * 9 + lz * 3 + lx) : -1;
+
+        boolean benchmark = com.fluxsyum.cullify.benchmark.BenchmarkManager.isRunning();
+        if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.blocksTested.increment();
 
         if (cullify$cacheValid && cullify$lastConfigVersion == CullifyMod.configVersion && inBounds) {
             byte cacheState = cullify$getCacheState(type, sectionIdx);
 
             if (cacheState == FULLY_CULLED) {
                 CullifyDebugManager.culledBlocks.increment();
+                if (benchmark) {
+                    com.fluxsyum.cullify.benchmark.BenchmarkManager.blocksCulled.increment();
+                    com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheHits.increment();
+                }
                 cir.setReturnValue(CullifyMod.getCulledState(state));
                 return;
             } else if (cacheState == FULLY_KEPT) {
+                if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheHits.increment();
                 return;
             }
+            if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheMisses.increment();
+        } else {
+            if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheMisses.increment();
         }
 
         float lightFactor = 1.0f;
@@ -156,6 +179,7 @@ public class MixinLevelSlice {
         }
 
         if (CullifyMod.shouldCull(state, x, y, z, lightFactor)) {
+            if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.blocksCulled.increment();
             cir.setReturnValue(CullifyMod.getCulledState(state));
         }
     }
@@ -163,6 +187,9 @@ public class MixinLevelSlice {
     // Rebuild the AABB distance cache for the 27 sections
     @Unique
     private void cullify$rebuildCache() {
+        boolean benchmark = com.fluxsyum.cullify.benchmark.BenchmarkManager.isRunning();
+        long start = benchmark ? System.nanoTime() : 0;
+
         final double px = CullifyMod.playerX;
         final double py = CullifyMod.playerY;
         final double pz = CullifyMod.playerZ;
@@ -172,28 +199,28 @@ public class MixinLevelSlice {
         final double otherDist = CullifyMod.getCullDistance(CullifyMod.PlantType.OTHER);
 
         for (int ly = 0; ly < 3; ly++) {
-            final double minY = originBlockY + (ly << 4);
+            final double minY = originY + (ly << 4);
             final double maxY = minY + 16.0;
             final double nearDy = py < minY ? minY - py : (py > maxY ? py - maxY : 0.0);
             final double farDy = py < minY + 8.0 ? maxY - py : py - minY;
 
-            int sy = (originBlockY >> 4) + ly - 1;
+            int sy = (originY >> 4) + ly - 1;
 
             for (int lz = 0; lz < 3; lz++) {
-                final double minZ = originBlockZ + (lz << 4);
+                final double minZ = originZ + (lz << 4);
                 final double maxZ = minZ + 16.0;
                 final double nearDz = pz < minZ ? minZ - pz : (pz > maxZ ? pz - maxZ : 0.0);
                 final double farDz = pz < minZ + 8.0 ? maxZ - pz : pz - minZ;
 
-                int sz = (originBlockZ >> 4) + lz - 1;
+                int sz = (originZ >> 4) + lz - 1;
 
                 for (int lx = 0; lx < 3; lx++) {
-                    final double minX = originBlockX + (lx << 4);
+                    final double minX = originX + (lx << 4);
                     final double maxX = minX + 16.0;
                     final double nearDx = px < minX ? minX - px : (px > maxX ? px - maxX : 0.0);
                     final double farDx = px < minX + 8.0 ? maxX - px : px - minX;
 
-                    int sx = (originBlockX >> 4) + lx - 1;
+                    int sx = (originX >> 4) + lx - 1;
 
                     final int sectionIdx = ly * 9 + lz * 3 + lx;
 
@@ -214,6 +241,11 @@ public class MixinLevelSlice {
 
         cullify$lastConfigVersion = CullifyMod.configVersion;
         cullify$cacheValid = true;
+
+        if (benchmark) {
+            com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheRebuildTimeNanos.add(System.nanoTime() - start);
+            com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheRebuilds.increment();
+        }
     }
 
     // Classify a section's culling status based on distances and threshold

@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class CullifyMod {
     public static final String MOD_ID = "cullify";
     public static String VERSION = "1.4.0";
+    public static final net.minecraft.resources.ResourceLocation LOGO = new net.minecraft.resources.ResourceLocation(MOD_ID, "textures/gui/logo.png");
 
     // Config version — incremented when settings change to invalidate caches.
     // Uses AtomicInteger so increment is thread-safe across render/background
@@ -203,7 +204,12 @@ public class CullifyMod {
         Block block = state.getBlock();
 
         // 1. Direct block checks first (extremely fast reference comparisons)
-        if (block == Blocks.TALL_GRASS || block == Blocks.LARGE_FERN) {
+        // In Minecraft 1.20.1:
+        // - Blocks.GRASS is the short 1-block tall grass.
+        // - Blocks.TALL_GRASS is the double-tall 2-block grass.
+        // - Blocks.FERN is the short 1-block tall fern.
+        // - Blocks.LARGE_FERN is the double-tall 2-block fern.
+        if (block == Blocks.GRASS || block == Blocks.TALL_GRASS || block == Blocks.FERN || block == Blocks.LARGE_FERN) {
             return PlantType.GRASS;
         }
 
@@ -220,7 +226,7 @@ public class CullifyMod {
             return PlantType.OTHER;
         }
 
-        // 2. Class exclusions for tree components, saplings, mushrooms
+        // 2. Class exclusions for tree components, saplings, mushrooms, crops
         if (block instanceof LeavesBlock || 
             block instanceof SaplingBlock || 
             block instanceof MushroomBlock || 
@@ -230,29 +236,35 @@ public class CullifyMod {
             return PlantType.NONE;
         }
 
-        if (block instanceof BushBlock) {
-            return PlantType.OTHER;
-        }
-
+        // 3. Flower Tag Check
         if (state.is(BlockTags.FLOWERS)) {
             return PlantType.FLOWER;
         }
 
+        // 4. Registry lookup check (modded compatibility)
         ResourceLocation id = BuiltInRegistries.BLOCK.getKey(block);
-        if (id == null) {
-            return PlantType.NONE;
-        }
-        String path = id.getPath();
+        if (id != null) {
+            String path = id.getPath();
 
-        // Keyword exceptions for mod compatibility
-        if (path.contains("leaves") || path.contains("petal") || path.contains("sapling") || path.contains("mushroom")) {
-            return PlantType.NONE;
-        }
-
-        if (path.contains("grass") || path.contains("fern")) {
-            if (!path.contains("block")) {
-                return PlantType.GRASS;
+            // Keyword exclusions
+            if (path.contains("leaves") || path.contains("petal") || path.contains("sapling") || path.contains("mushroom")) {
+                return PlantType.NONE;
             }
+
+            if (path.contains("grass") || path.contains("fern")) {
+                if (!path.contains("block")) {
+                    return PlantType.GRASS;
+                }
+            }
+
+            if (path.contains("flower") || path.contains("blossom")) {
+                return PlantType.FLOWER;
+            }
+        }
+
+        // 5. Fallback for any other general bush block
+        if (block instanceof BushBlock) {
+            return PlantType.OTHER;
         }
 
         return PlantType.NONE;

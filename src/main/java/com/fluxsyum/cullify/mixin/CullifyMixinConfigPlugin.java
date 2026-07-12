@@ -9,34 +9,21 @@ import java.util.Set;
 
 /**
  * Mixin config plugin that conditionally applies Sodium/Embeddium-specific mixins
- * only when those classes are actually present on the classpath.
- *
- * IMPORTANT: shouldApplyMixin is called during class transformation, BEFORE FML's
- * LoadingModList is populated. We MUST use Class.forName for detection — using
- * LoadingModList.get() here will always return null/empty and break detection.
- *
- * Class.forName with initialize=false is safe at transformation time because the
- * class files are already on the classpath even before they are initialized.
+ * only when those classes or mods are actually present in the game environment.
  */
 public class CullifyMixinConfigPlugin implements IMixinConfigPlugin {
 
-    /**
-     * Detected once on first shouldApplyMixin call. Uses tri-state:
-     * null = not checked yet, TRUE = Sodium/Embeddium present, FALSE = absent.
-     */
     private static Boolean hasSodiumCached = null;
 
     private static boolean isClassPresent(String className) {
         try {
-            String path = className.replace('.', '/') + ".class";
-            ClassLoader cl = CullifyMixinConfigPlugin.class.getClassLoader();
-            if (cl != null && cl.getResource(path) != null) {
-                return true;
-            }
-            cl = Thread.currentThread().getContextClassLoader();
-            if (cl != null && cl.getResource(path) != null) {
-                return true;
-            }
+            Class.forName(className, false, CullifyMixinConfigPlugin.class.getClassLoader());
+            return true;
+        } catch (Throwable ignored) {
+        }
+        try {
+            Class.forName(className, false, Thread.currentThread().getContextClassLoader());
+            return true;
         } catch (Throwable ignored) {
         }
         return false;
@@ -47,44 +34,40 @@ public class CullifyMixinConfigPlugin implements IMixinConfigPlugin {
             return hasSodiumCached;
         }
 
-        // Primary check: Embeddium (Forge port of Sodium) uses the same me.jellysquid package
-        // for version 0.3.x which is the standard 1.20.1 Embeddium release.
         boolean found = false;
 
-        // Check 1: Embeddium / Sodium LevelSlice class (primary signal)
+        // 1. Try LoadingModList (standard Forge early detection)
+        try {
+            net.minecraftforge.fml.loading.LoadingModList list = net.minecraftforge.fml.loading.LoadingModList.get();
+            if (list != null && (list.getModFileById("sodium") != null || list.getModFileById("embeddium") != null)) {
+                found = true;
+            }
+        } catch (Throwable ignored) {}
+
+        // 2. Class presence check (safe Class.forName check)
         if (!found) {
-            found = isClassPresent("me.jellysquid.mods.sodium.client.world.LevelSlice");
+            found = isClassPresent("me.jellysquid.mods.sodium.client.world.WorldSlice")
+                 || isClassPresent("org.embeddedt.embeddium.client.world.WorldSlice")
+                 || isClassPresent("me.jellysquid.mods.sodium.client.render.chunk.compile.pipeline.BlockRenderContext");
         }
 
-        // Check 2: Embeddium newer package namespace (future-proofing)
-        if (!found) {
-            found = isClassPresent("org.embeddedt.embeddium.client.world.LevelSlice");
+        // Cache only if LoadingModList is initialized, or if found is true.
+        // If not found, and LoadingModList might not be ready yet, don't cache 'false' too early.
+        boolean loadingModListReady = false;
+        try {
+            loadingModListReady = (net.minecraftforge.fml.loading.LoadingModList.get() != null);
+        } catch (Throwable ignored) {}
+
+        if (found || loadingModListReady) {
+            hasSodiumCached = found;
         }
 
-        // Check 3: Any Embeddium/Sodium render region class as fallback
-        if (!found) {
-            found = isClassPresent("me.jellysquid.mods.sodium.client.render.chunk.compile.pipeline.BlockRenderContext");
-        }
-
-        // Check 4: Try FML LoadingModList as a last resort (may be null this early, but worth trying)
-        if (!found) {
-            try {
-                net.minecraftforge.fml.loading.LoadingModList list = net.minecraftforge.fml.loading.LoadingModList.get();
-                if (list != null && (list.getModFileById("sodium") != null
-                        || list.getModFileById("embeddium") != null)) {
-                    found = true;
-                }
-            } catch (Throwable ignored) {}
-        }
-
-        hasSodiumCached = found;
         return found;
     }
 
     @Override
     public void onLoad(String mixinPackage) {
-        // Trigger detection early so it's ready for shouldApplyMixin calls
-        detectSodium();
+        // Do NOT trigger detection in onLoad because classloaders and LoadingModList are not fully initialized yet.
     }
 
     @Override
