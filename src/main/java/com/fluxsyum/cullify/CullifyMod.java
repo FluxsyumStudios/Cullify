@@ -1,27 +1,36 @@
 package com.fluxsyum.cullify;
 
 import com.fluxsyum.cullify.duck.CullifyBlockState;
-import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.loader.api.FabricLoader;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class CullifyMod implements ClientModInitializer {
     public static final String MOD_ID = "cullify";
+    public static String VERSION = "1.3.1";
+    public static final Identifier LOGO = Identifier.fromNamespaceAndPath(MOD_ID, "textures/gui/logo.png");
 
     // -----------------------------------------------------------------------
-    // Config version — incremented when settings change to invalidate caches
+    // Config version — incremented when settings change to invalidate caches.
+    // Uses AtomicInteger so increment is thread-safe across render/background
+    // threads without locks.
     // -----------------------------------------------------------------------
+    private static final AtomicInteger configVersionAtomic = new AtomicInteger(0);
+
+    /** Read by chunk-builder threads — returns the current version number. */
     public static volatile int configVersion = 0;
 
     public static void incrementConfigVersion() {
-        configVersion++;
+        configVersion = configVersionAtomic.incrementAndGet();
     }
 
     // -----------------------------------------------------------------------
@@ -40,122 +49,75 @@ public class CullifyMod implements ClientModInitializer {
     public static volatile boolean cachedCullGrass     = true;
     public static volatile boolean cachedCullFlowers   = true;
     public static volatile boolean cachedCullOther     = true;
-    /** Grass cull radius squared (pre-computed from distance) */
     public static volatile double  cachedGrassDist     = 48;
     public static volatile double  cachedFlowerDist    = 48;
     public static volatile double  cachedOtherDist     = 32;
+
+    public static volatile double  cachedGrassDistScaled   = 48;
+    public static volatile double  cachedFlowerDistScaled  = 48;
+    public static volatile double  cachedOtherDistScaled   = 32;
+
+    public static volatile double  cachedGrassDistSqScaled   = 48 * 48;
+    public static volatile double  cachedFlowerDistSqScaled  = 48 * 48;
+    public static volatile double  cachedOtherDistSqScaled   = 32 * 32;
+
     public static volatile CullifyConfig.CullingShape cachedShape = CullifyConfig.CullingShape.SPHERE;
     /** LOD density threshold: 0 = cull all, 100 = cull nothing at near-border (disabled) */
     public static volatile int     cachedLodDensity    = 100;
+    /** Smart Scale: whether to auto-reduce distances when FPS drops */
+    public static volatile boolean cachedSmartScale    = false;
+    /** Target FPS for the Smart Scale system */
+    public static volatile int     cachedTargetFps     = 60;
+    /** Light-Aware Culling: whether to reduce distances in dark areas */
+    public static volatile boolean cachedLightAware    = false;
+
+    /**
+     * Current Smart Scale multiplier in [0.5, 1.0].
+     * Written by the main thread every second; read by background rebuild thread.
+     */
+    public static volatile float smartScaleFactor = 1.0f;
+
+    /**
+     * Per-section light importance factor, in [0.3, 1.0].
+     * Key = SectionPos.asLong(sx, sy, sz). Written by the background classifier thread.
+     */
+    public static final java.util.concurrent.ConcurrentHashMap<Long, Float> sectionLightFactors =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    public static volatile boolean benchmarkBypass = false;
+
+    public static void updateScaledDistances() {
+        float scale = cachedSmartScale ? smartScaleFactor : 1.0f;
+        cachedGrassDistScaled = cachedGrassDist * scale;
+        cachedFlowerDistScaled = cachedFlowerDist * scale;
+        cachedOtherDistScaled = cachedOtherDist * scale;
+        cachedGrassDistSqScaled = cachedGrassDistScaled * cachedGrassDistScaled;
+        cachedFlowerDistSqScaled = cachedFlowerDistScaled * cachedFlowerDistScaled;
+        cachedOtherDistSqScaled = cachedOtherDistScaled * cachedOtherDistScaled;
+    }
 
     /**
      * Refresh all cached config values. Called whenever a config change is detected.
      * This must only be called from the main client thread.
      */
     public static void updateConfigCache() {
-        cachedEnabled     = CullifyConfig.ENABLED.get();
-        cachedCullGrass   = CullifyConfig.CULL_GRASS.get();
-        cachedCullFlowers = CullifyConfig.CULL_FLOWERS.get();
-        cachedCullOther   = CullifyConfig.CULL_OTHER_PLANTS.get();
-        cachedGrassDist   = CullifyConfig.GRASS_CULL_DISTANCE.get();
-        cachedFlowerDist  = CullifyConfig.FLOWER_CULL_DISTANCE.get();
-        cachedOtherDist   = CullifyConfig.OTHER_PLANT_CULL_DISTANCE.get();
-        cachedShape       = CullifyConfig.CULLING_SHAPE.get();
+        cachedEnabled       = CullifyConfig.ENABLED.get() && !benchmarkBypass;
+        cachedCullGrass     = CullifyConfig.CULL_GRASS.get();
+        cachedCullFlowers   = CullifyConfig.CULL_FLOWERS.get();
+        cachedCullOther     = CullifyConfig.CULL_OTHER_PLANTS.get();
+        cachedGrassDist     = CullifyConfig.GRASS_CULL_DISTANCE.get();
+        cachedFlowerDist    = CullifyConfig.FLOWER_CULL_DISTANCE.get();
+        cachedOtherDist     = CullifyConfig.OTHER_PLANT_CULL_DISTANCE.get();
+        cachedShape         = CullifyConfig.CULLING_SHAPE.get();
+        cachedLodDensity    = CullifyConfig.LOD_DENSITY.get();
+        cachedSmartScale    = CullifyConfig.SMART_SCALE.get();
+        cachedTargetFps     = CullifyConfig.TARGET_FPS.get();
+        cachedLightAware    = CullifyConfig.LIGHT_AWARE_CULLING.get();
+
+        updateScaledDistances();
     }
 
-    // -----------------------------------------------------------------------
-    // Voxel Grid — flat boolean[128×128×128] grid centred on the player for
-    // O(1) visibility lookups. Rebuilt on player movement or config change.
-    //
-    // Coordinate mapping (local index):
-    //   ix = ((int)x - gridOriginX) + 64  → range [0, 127]
-    //   iy = ((int)y - gridOriginY) + 64
-    //   iz = ((int)z - gridOriginZ) + 64
-    //   index = iy * 128*128 + iz * 128 + ix
-    //
-    // A slot is TRUE when the block is VISIBLE (inside the culling shape),
-    // FALSE when culled. We keep the "visible" semantics to make the initial
-    // state (all-false = all culled) a safe fallback until the first rebuild.
-    // -----------------------------------------------------------------------
-    private static final int GRID_HALF   = 64;
-    private static final int GRID_SIZE   = 128;
-    private static final int GRID_AREA   = GRID_SIZE * GRID_SIZE;
-    private static final int GRID_VOLUME = GRID_SIZE * GRID_SIZE * GRID_SIZE;
-
-    /** Grid cells: true = block is within the culling radius (KEPT), false = culled */
-    public static final boolean[] voxelGrid = new boolean[GRID_VOLUME];
-
-    /** World-space origin of the voxel grid (block at local index 0,0,0) */
-    public static volatile int gridOriginX = 0;
-    public static volatile int gridOriginY = 0;
-    public static volatile int gridOriginZ = 0;
-
-    /** Whether the grid needs a full rebuild */
-    public static volatile boolean voxelGridDirty = true;
-
-    /**
-     * Rebuilds the entire voxel grid around the given camera position.
-     * This is an O(128³) operation (~2M iterations) and should only be called
-     * when the player moves more than a few blocks or config changes.
-     *
-     * <p>To keep the grid rebuild fast we use the cached shape and distances,
-     * and we call {@link #isInShape} which inlines a simple conditional chain.</p>
-     */
-    public static void rebuildVoxelGrid(double px, double py, double pz) {
-        int ox = (int) px - GRID_HALF;
-        int oy = (int) py - GRID_HALF;
-        int oz = (int) pz - GRID_HALF;
-        gridOriginX = ox;
-        gridOriginY = oy;
-        gridOriginZ = oz;
-
-        double grassLimit  = cachedCullGrass   ? cachedGrassDist  : -1;
-        double flowerLimit = cachedCullFlowers  ? cachedFlowerDist : -1;
-        double otherLimit  = cachedCullOther    ? cachedOtherDist  : -1;
-        CullifyConfig.CullingShape shape = cachedShape;
-
-        for (int iy = 0; iy < GRID_SIZE; iy++) {
-            double dy = (oy + iy + 0.5) - py;
-            int baseY = iy * GRID_AREA;
-            for (int iz = 0; iz < GRID_SIZE; iz++) {
-                double dz = (oz + iz + 0.5) - pz;
-                int baseYZ = baseY + iz * GRID_SIZE;
-                for (int ix = 0; ix < GRID_SIZE; ix++) {
-                    double dx = (ox + ix + 0.5) - px;
-                    // A cell is "kept" (visible) if ANY plant type would keep it.
-                    // This is a conservative union — the exact plant type is still
-                    // checked during getBlockState, but FULLY_CULLED sections
-                    // can be detected quickly in MixinLevelSlice.
-                    boolean kept =
-                        (grassLimit  >= 0 && isInShape(dx, dy, dz, grassLimit,  shape)) ||
-                        (flowerLimit >= 0 && isInShape(dx, dy, dz, flowerLimit, shape)) ||
-                        (otherLimit  >= 0 && isInShape(dx, dy, dz, otherLimit,  shape));
-                    voxelGrid[baseYZ + ix] = kept;
-                }
-            }
-        }
-
-        voxelGridDirty = false;
-    }
-
-    /**
-     * Returns whether a world block at (x, y, z) is inside the culling radius
-     * (i.e., should be KEPT) using the voxel grid for O(1) lookup.
-     * Falls back to per-block math if the position is outside the grid.
-     */
-    public static boolean isKeptByVoxelGrid(int x, int y, int z, double limit, CullifyConfig.CullingShape shape) {
-        int ix = x - gridOriginX;
-        int iy = y - gridOriginY;
-        int iz = z - gridOriginZ;
-        if (ix >= 0 && ix < GRID_SIZE && iy >= 0 && iy < GRID_SIZE && iz >= 0 && iz < GRID_SIZE) {
-            return voxelGrid[iy * GRID_AREA + iz * GRID_SIZE + ix];
-        }
-        // Outside grid bounds — fall back to exact math
-        double dx = x + 0.5 - playerX;
-        double dy = y + 0.5 - playerY;
-        double dz = z + 0.5 - playerZ;
-        return isInShape(dx, dy, dz, limit, shape);
-    }
+    // Voxel grid system removed for performance.
 
     // -----------------------------------------------------------------------
     // LOD Density — deterministic per-block hash using large primes so that
@@ -180,7 +142,7 @@ public class CullifyMod implements ClientModInitializer {
         hash ^= (hash >>> 33);
         hash *= 0xff51afd7ed558ccdL;
         hash ^= (hash >>> 33);
-        int bucket = (int) (Math.abs(hash) % 100L);
+        int bucket = (int) ((hash & Long.MAX_VALUE) % 100L);
         return bucket < density;
     }
 
@@ -193,33 +155,28 @@ public class CullifyMod implements ClientModInitializer {
         updateConfigCache();
         CullifyDebugManager.syncFromConfig();
 
-        ClientEventHandler.registerClientEvents();
+        VERSION = FabricLoader.getInstance().getModContainer(MOD_ID)
+                .map(container -> container.getMetadata().getVersion().getFriendlyString())
+                .orElse("1.4.0");
 
-        try {
-            Class.forName("toni.sodiumoptionsapi.api.OptionGUIConstruction", false, this.getClass().getClassLoader());
-            Class<?> compatClass = Class.forName("com.fluxsyum.cullify.compat.SodiumCompat");
-            compatClass.getMethod("registerOptions").invoke(null);
-        } catch (Throwable ignored) {
-        }
+        CullifyDebugManager.sodiumDetected = FabricLoader.getInstance().isModLoaded("sodium");
 
-        try {
-            Class.forName("net.caffeinemc.mods.sodium.client.world.LevelSlice", false, this.getClass().getClassLoader());
-            CullifyDebugManager.sodiumDetected = true;
-        } catch (Throwable ignored) {
-            CullifyDebugManager.sodiumDetected = false;
-        }
+        com.fluxsyum.cullify.client.ClientModBusSubscriber.register();
+        com.fluxsyum.cullify.ClientEventHandler.register();
     }
 
+    public static volatile boolean reloadRequired = false;
+
+    /**
+     * Flags that a full re-render of all visible sections is required.
+     * The actual reload is deferred until the next client tick when no screen
+     * is open, preventing rendering issues if the config is changed while the
+     * game is paused.
+     */
     public static void scheduleWorldReload() {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc != null) {
-            mc.execute(() -> {
-                if (mc.levelRenderer != null) {
-                    mc.levelRenderer.allChanged();
-                }
-            });
-        }
+        reloadRequired = true;
     }
+
     // -----------------------------------------------------------------------
     // Plant classification
     // -----------------------------------------------------------------------
@@ -233,36 +190,7 @@ public class CullifyMod implements ClientModInitializer {
     public static PlantType computePlantType(BlockState state) {
         Block block = state.getBlock();
 
-        // Class exclusions for tree components, saplings, mushrooms
-        if (block instanceof LeavesBlock ||
-            block instanceof SaplingBlock ||
-            block instanceof MushroomBlock ||
-            block instanceof FungusBlock ||
-            block instanceof PinkPetalsBlock) {
-            return PlantType.NONE;
-        }
-
-        ResourceLocation id = BuiltInRegistries.BLOCK.getKey(block);
-        if (id == null) {
-            return PlantType.NONE;
-        }
-        String path = id.getPath();
-
-        // Keyword exceptions for mod compatibility
-        if (path.contains("leaves") || path.contains("petal") || path.contains("sapling") || path.contains("mushroom")) {
-            return PlantType.NONE;
-        }
-
-        if (state.is(BlockTags.FLOWERS)) {
-            return PlantType.FLOWER;
-        }
-
-        if (path.contains("grass") || path.contains("fern")) {
-            if (!path.contains("block")) {
-                return PlantType.GRASS;
-            }
-        }
-
+        // 1. Direct block checks first (extremely fast reference comparisons)
         if (block == Blocks.TALL_GRASS || block == Blocks.LARGE_FERN) {
             return PlantType.GRASS;
         }
@@ -280,8 +208,41 @@ public class CullifyMod implements ClientModInitializer {
             return PlantType.OTHER;
         }
 
-        if (block instanceof BushBlock && !(block instanceof CropBlock)) {
+        // 2. Class exclusions for trees, saplings, mushrooms, crops
+        if (block instanceof LeavesBlock ||
+            block instanceof SaplingBlock ||
+            block instanceof MushroomBlock ||
+            block instanceof NetherFungusBlock ||
+            block instanceof FlowerBedBlock ||
+            block instanceof CropBlock) {
+            return PlantType.NONE;
+        }
+
+        if (block instanceof BushBlock) {
             return PlantType.OTHER;
+        }
+
+        // 3. Tag checks (O(1) set lookup)
+        if (state.is(BlockTags.FLOWERS)) {
+            return PlantType.FLOWER;
+        }
+
+        // 4. Fallback registry lookup for modded blocks
+        Identifier id = BuiltInRegistries.BLOCK.getKey(block);
+        if (id == null) {
+            return PlantType.NONE;
+        }
+        String path = id.getPath();
+
+        // Keyword exceptions for mod compatibility
+        if (path.contains("leaves") || path.contains("petal") || path.contains("sapling") || path.contains("mushroom")) {
+            return PlantType.NONE;
+        }
+
+        if (path.contains("grass") || path.contains("fern")) {
+            if (!path.contains("block")) {
+                return PlantType.GRASS;
+            }
         }
 
         return PlantType.NONE;
@@ -306,20 +267,27 @@ public class CullifyMod implements ClientModInitializer {
     public static double getCullDistance(PlantType type) {
         switch (type) {
             case GRASS:
-                return cachedCullGrass   ? cachedGrassDist  : -1;
+                return cachedCullGrass   ? cachedGrassDistScaled  : -1;
             case FLOWER:
-                return cachedCullFlowers ? cachedFlowerDist : -1;
+                return cachedCullFlowers ? cachedFlowerDistScaled : -1;
             case OTHER:
-                return cachedCullOther   ? cachedOtherDist  : -1;
+                return cachedCullOther   ? cachedOtherDistScaled  : -1;
             default:
                 return -1;
         }
     }
 
     public static double getCullDistanceSq(PlantType type) {
-        double limit = getCullDistance(type);
-        if (limit < 0) return -1;
-        return limit * limit;
+        switch (type) {
+            case GRASS:
+                return cachedCullGrass   ? cachedGrassDistSqScaled  : -1;
+            case FLOWER:
+                return cachedCullFlowers ? cachedFlowerDistSqScaled : -1;
+            case OTHER:
+                return cachedCullOther   ? cachedOtherDistSqScaled  : -1;
+            default:
+                return -1;
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -364,7 +332,7 @@ public class CullifyMod implements ClientModInitializer {
         return shouldCull(state, pos.getX(), pos.getY(), pos.getZ());
     }
 
-    public static boolean shouldCull(BlockState state, int x, int y, int z) {
+    private static boolean shouldCullInternal(BlockState state, int x, int y, int z, boolean countStats, boolean applyLod, float lightFactor) {
         if (!cachedEnabled || !hasPlayer) {
             return false;
         }
@@ -374,10 +342,8 @@ public class CullifyMod implements ClientModInitializer {
             return false;
         }
 
-        // Double-block plants: always use LOWER half's position so both halves share
-        // the exact same culling decision and never go out of sync visually.
-        if (state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF)
-                && state.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF) == DoubleBlockHalf.UPPER) {
+        // Cache double-block property lookup in duck interface to avoid map checks
+        if (((com.fluxsyum.cullify.duck.CullifyBlockState) (Object) state).cullify$isDoubleBlockUpperHalf()) {
             y -= 1;
         }
 
@@ -386,29 +352,67 @@ public class CullifyMod implements ClientModInitializer {
             return false;
         }
 
-        // LOD density filter — deterministic hash, removes distant sparse blocks
-        int lodDensity = cachedLodDensity;
-        if (lodDensity < 100) {
-            double dx0 = x + 0.5 - playerX;
-            double dz0 = z + 0.5 - playerZ;
-            double distSq = dx0 * dx0 + dz0 * dz0;
-            double halfLimitSq = (limit * 0.5) * (limit * 0.5);
-            // Only apply density thinning in the outer 50% of the cull radius
-            if (distSq > halfLimitSq && !passesLodDensity(x, y, z, lodDensity)) {
-                CullifyDebugManager.culledBlocks.increment();
-                return true;
-            }
+        // Light-Aware Culling: scale the effective cull limit using pre-fetched light factor
+        if (cachedLightAware) {
+            limit *= lightFactor;
         }
 
         double dx = x + 0.5 - playerX;
         double dy = y + 0.5 - playerY;
         double dz = z + 0.5 - playerZ;
 
-        if (isOutsideShape(dx, dy, dz, limit)) {
-            CullifyDebugManager.culledBlocks.increment();
+        // LOD density filter — deterministic hash, removes distant sparse blocks (optimized fast range)
+        if (applyLod) {
+            int lodDensity = cachedLodDensity;
+            if (lodDensity < 100) {
+                double distSq = dx * dx + dz * dz;
+                double halfLimitSq = (limit * 0.5) * (limit * 0.5);
+                // Only apply density thinning in the outer 50% of the cull radius
+                if (distSq > halfLimitSq && !passesLodDensity(x, y, z, lodDensity)) {
+                     if (countStats) {
+                         CullifyDebugManager.culledBlocks.increment();
+                     }
+                     return true;
+                }
+            }
+        }
+
+        // Inline shape check for SPHERE (default/most common) and CYLINDER/CIRCLE
+        boolean isOutside;
+        if (cachedShape == CullifyConfig.CullingShape.SPHERE) {
+            isOutside = (dx * dx + dy * dy + dz * dz) > limit * limit;
+        } else if (cachedShape == CullifyConfig.CullingShape.CYLINDER || cachedShape == CullifyConfig.CullingShape.CIRCLE) {
+            isOutside = (dx * dx + dz * dz) > limit * limit;
+        } else {
+            isOutside = !isInShape(dx, dy, dz, limit, cachedShape);
+        }
+
+        if (isOutside) {
+            if (countStats) {
+                CullifyDebugManager.culledBlocks.increment();
+            }
             return true;
         }
         return false;
+    }
+
+    public static boolean shouldCull(BlockState state, int x, int y, int z) {
+        float lightFactor = 1.0f;
+        if (cachedLightAware) {
+            int sx = x >> 4;
+            int sy = y >> 4;
+            int sz = z >> 4;
+            long secKey = net.minecraft.core.SectionPos.asLong(sx, sy, sz);
+            Float factor = sectionLightFactors.get(secKey);
+            if (factor != null) {
+                lightFactor = factor;
+            }
+        }
+        return shouldCullInternal(state, x, y, z, true, true, lightFactor);
+    }
+
+    public static boolean shouldCull(BlockState state, int x, int y, int z, float lightFactor) {
+        return shouldCullInternal(state, x, y, z, true, true, lightFactor);
     }
 
     public static boolean shouldCullNoCount(BlockState state, BlockPos pos) {
@@ -416,30 +420,17 @@ public class CullifyMod implements ClientModInitializer {
     }
 
     public static boolean shouldCullNoCount(BlockState state, int x, int y, int z) {
-        if (!cachedEnabled || !hasPlayer) {
-            return false;
+        float lightFactor = 1.0f;
+        if (cachedLightAware) {
+            int sx = x >> 4;
+            int sy = y >> 4;
+            int sz = z >> 4;
+            long secKey = net.minecraft.core.SectionPos.asLong(sx, sy, sz);
+            Float factor = sectionLightFactors.get(secKey);
+            if (factor != null) {
+                lightFactor = factor;
+            }
         }
-
-        PlantType type = getPlantType(state);
-        if (type == PlantType.NONE) {
-            return false;
-        }
-
-        // Double-block plants: always use LOWER half's position.
-        if (state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF)
-                && state.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF) == DoubleBlockHalf.UPPER) {
-            y -= 1;
-        }
-
-        double limit = getCullDistance(type);
-        if (limit < 0) {
-            return false;
-        }
-
-        double dx = x + 0.5 - playerX;
-        double dy = y + 0.5 - playerY;
-        double dz = z + 0.5 - playerZ;
-
-        return isOutsideShape(dx, dy, dz, limit);
+        return shouldCullInternal(state, x, y, z, false, true, lightFactor);
     }
 }

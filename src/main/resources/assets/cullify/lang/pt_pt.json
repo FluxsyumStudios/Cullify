@@ -1,15 +1,15 @@
 {
   "cullify.options.enabled": "Habilitar Culling de Vegetação",
   "cullify.options.enabled.tooltip": "Habilita ou desabilita o culling de blocos de vegetação decorativa dinamicamente dependendo da distância.",
-  "cullify.options.cull_grass": "Culling de Grama",
-  "cullify.options.cull_grass.tooltip": "Habilita o culling de distância para grama, samambaias e grama curta.",
-  "cullify.options.grass_distance": "Distância do Culling de Grama",
-  "cullify.options.grass_distance.tooltip": "A distância máxima de renderização (em blocos) para grama, grama alta e samambaias decorativas.",
-  "cullify.options.cull_flowers": "Culling de Flores",
+  "cullify.options.cull_grass": "Ocultar Relva",
+  "cullify.options.cull_grass.tooltip": "Habilita o culling de distância para relva, fetos e relva curta.",
+  "cullify.options.grass_distance": "Distância do Culling de Relva",
+  "cullify.options.grass_distance.tooltip": "A distância máxima de renderização (em blocos) para relva, relva alta e fetos decorativos.",
+  "cullify.options.cull_flowers": "Ocultar Flores",
   "cullify.options.cull_flowers.tooltip": "Habilita o culling de distância para flores normais e altas.",
   "cullify.options.flower_distance": "Distância do Culling de Flores",
   "cullify.options.flower_distance.tooltip": "A distância máxima de renderização (em blocos) para flores, flores de duas alturas e vasos de flores.",
-  "cullify.options.cull_other_plants": "Culling de Outras Plantas/Algas",
+  "cullify.options.cull_other_plants": "Ocultar Outros/Algas",
   "cullify.options.cull_other_plants.tooltip": "Habilita o culling de distância para plantas marinhas, arbustos secos e outras plantas gerais.",
   "cullify.options.other_distance": "Distância para Outras Plantas",
   "cullify.options.other_distance.tooltip": "A distância máxima de renderização (em blocos) para outras plantas decorativas (arbustos secos, pétalas de flores, etc.).",
@@ -47,18 +47,18 @@
   "cullify.menu.option.debug": "HUD Depuração",
   "cullify.menu.option.lod": "Densidade LOD",
   "cullify.menu.option.shape": "Formato Culling",
-  "cullify.menu.option.grass": "Culling Grama",
-  "cullify.menu.option.flowers": "Culling Flores",
-  "cullify.menu.option.other": "Culling Outros",
+  "cullify.menu.option.grass": "Ocultar Relva",
+  "cullify.menu.option.flowers": "Ocultar Flores",
+  "cullify.menu.option.other": "Ocultar Outros",
   "cullify.menu.slider.distance": "Distância",
 <<<<<<< HEAD
   "key.category.cullify.cullify": "Cullify"
 =======
   "cullify.menu.option.smart_scale": "Smart Scale",
-  "cullify.menu.option.smart_scale.tooltip": "Reduz automaticamente as distâncias de culling quando o FPS cai abaixo do alvo. Restaura gradualmente quando o FPS se recupera.",
+  "cullify.menu.option.smart_scale.tooltip": "Reduz automaticamente as distâncias de culling quando os FPS caem abaixo do alvo. Restaura gradualmente quando os FPS se recuperam.",
   "cullify.menu.option.target_fps": "FPS Alvo",
-  "cullify.menu.option.target_fps.tooltip": "Limite de FPS usado pelo Smart Scale. Se o FPS cair abaixo deste valor, as distâncias de culling serão reduzidas.",
-  "cullify.menu.option.light_aware": "Culling por Luz",
-  "cullify.menu.option.light_aware.tooltip": "Reduz as distâncias de culling em áreas escuras (florestas, cavernas, noite). A vegetação invisível no escuro é ocultada mais cedo, economizando GPU sem impacto visual."
+  "cullify.menu.option.target_fps.tooltip": "Limite de FPS utilizado pelo Smart Scale. Quando os FPS caem abaixo deste valor, as distâncias de culling são reduzidas.",
+  "cullify.menu.option.light_aware": "Culling por Iluminação",
+  "cullify.menu.option.light_aware.tooltip": "Reduz as distâncias de culling em zonas escuras (florestas, cavernas, noite). A vegetação invisível é ocultada mais cedo, poupando GPU sem impacto visual."
 }
 

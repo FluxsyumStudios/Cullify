@@ -1,18 +1,17 @@
 package com.fluxsyum.cullify;
 
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
-import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
-import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.phys.Vec3;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import static net.fabricmc.fabric.api.client.command.v2.ClientCommands.literal;
+import static net.fabricmc.fabric.api.client.command.v2.ClientCommands.argument;
 import com.mojang.brigadier.CommandDispatcher;
 
 import java.util.ArrayList;
@@ -20,12 +19,38 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class ClientEventHandler {
 
-    public static KeyMapping configKeyMapping;
-    public static final ResourceLocation LOGO_RL = ResourceLocation.fromNamespaceAndPath(CullifyMod.MOD_ID, "textures/gui/logo.png");
+    /**
+     * Dedicated scheduler for async config saves with debounce.
+     * Config saves (disk I/O) are NEVER done on the main/render thread.
+     */
+    private static final ScheduledExecutorService ASYNC_SAVER = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "Cullify-Async-Saver");
+        t.setDaemon(true);
+        t.setPriority(Thread.MIN_PRIORITY);
+        return t;
+    });
+
+    /** Reference to the pending save future — cancelled and replaced on each change. */
+    private static final AtomicReference<ScheduledFuture<?>> pendingSave = new AtomicReference<>(null);
+
+    public static void scheduleDebouncedSave() {
+        ScheduledFuture<?> existing = pendingSave.getAndSet(null);
+        if (existing != null) {
+            existing.cancel(false);
+        }
+        ScheduledFuture<?> future = ASYNC_SAVER.schedule(() -> {
+            try { CullifyConfig.save(); } catch (Throwable e) {}
+        }, 2, TimeUnit.SECONDS);
+        pendingSave.set(future);
+    }
 
     /**
      * Single-thread background executor for section-state classification.
@@ -58,6 +83,12 @@ public class ClientEventHandler {
     private static int lastFlowerDist = 48;
     private static int lastOtherDist = 32;
     private static CullifyConfig.CullingShape lastCullingShape = CullifyConfig.CullingShape.SPHERE;
+    private static boolean lastSmartScale = false;
+    private static int lastTargetFps = 60;
+    private static boolean lastLightAware = false;
+
+    /** Tick counter for Smart Scale FPS adjustment (runs every 20 ticks = 1 second) */
+    private static int smartScaleTickCounter = 0;
 
     /**
      * Thread-safe map from packed section position to its classified state.
@@ -76,26 +107,32 @@ public class ClientEventHandler {
         public int lastSeenTick;
     }
 
-    public static void registerClientEvents() {
-        ClientTickEvents.END_CLIENT_TICK.register(client -> onClientTick());
+    public static void onRenderFrame() {
+        com.fluxsyum.cullify.benchmark.BenchmarkManager.recordFrame();
 
-        configKeyMapping = KeyBindingHelper.registerKeyBinding(new KeyMapping(
-            "key.cullify.config",
-            com.mojang.blaze3d.platform.InputConstants.KEY_K,
-            "key.categories.cullify"
-        ));
-
-        net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
-            registerCommands(dispatcher);
-        });
-
-        HudRenderCallback.EVENT.register((graphics, deltaTracker) -> {
-            renderDebugHud(graphics);
-        });
+        // Lock camera rotation during benchmark to perform identical cinematic rotation
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player != null && com.fluxsyum.cullify.benchmark.BenchmarkManager.isRunning()) {
+            com.fluxsyum.cullify.benchmark.BenchmarkManager.State bState = com.fluxsyum.cullify.benchmark.BenchmarkManager.getState();
+            float currentYaw = com.fluxsyum.cullify.benchmark.BenchmarkManager.startYaw;
+            
+            if (bState == com.fluxsyum.cullify.benchmark.BenchmarkManager.State.RUNNING_WITHOUT ||
+                bState == com.fluxsyum.cullify.benchmark.BenchmarkManager.State.RUNNING_WITH) {
+                long elapsed = System.currentTimeMillis() - com.fluxsyum.cullify.benchmark.BenchmarkManager.getPhaseStartTimeMillis();
+                long duration = com.fluxsyum.cullify.benchmark.BenchmarkManager.getPhaseDurationMillis();
+                float progress = duration > 0 ? (float) elapsed / duration : 0.0f;
+                progress = Math.min(1.0f, Math.max(0.0f, progress));
+                currentYaw = com.fluxsyum.cullify.benchmark.BenchmarkManager.startYaw + progress * 360.0f;
+            }
+            
+            mc.player.setYRot(currentYaw);
+            mc.player.yRotO = currentYaw;
+            mc.player.setXRot(0.0f);
+            mc.player.xRotO = 0.0f;
+        }
     }
 
-    public static void onClientTick() {
-        Minecraft mc = Minecraft.getInstance();
+    public static void onClientTick(Minecraft mc) {
         LocalPlayer player = mc.player;
         ClientLevel level = mc.level;
 
@@ -106,15 +143,41 @@ public class ClientEventHandler {
             return;
         }
 
+        // Lock position and reset velocity during benchmark to keep player in the same spot
+        if (com.fluxsyum.cullify.benchmark.BenchmarkManager.isRunning()) {
+            player.setPos(com.fluxsyum.cullify.benchmark.BenchmarkManager.startX,
+                           com.fluxsyum.cullify.benchmark.BenchmarkManager.startY,
+                           com.fluxsyum.cullify.benchmark.BenchmarkManager.startZ);
+            player.setDeltaMovement(0, 0, 0);
+            player.xxa = 0.0f;
+            player.yya = 0.0f;
+            player.zza = 0.0f;
+        }
+
+        // Deferred reload check: only reload chunks when no screen is open (game is unpaused)
+        if (CullifyMod.reloadRequired && mc.screen == null) {
+            CullifyMod.reloadRequired = false;
+            if (mc.levelRenderer != null) {
+                mc.levelRenderer.allChanged();
+                // Second reload queued for the next frame to flush Sodium's async queue
+                mc.execute(() -> {
+                    if (mc.levelRenderer != null) {
+                        mc.levelRenderer.allChanged();
+                    }
+                });
+            }
+        }
+
         // Open config menu on key mapping press
-        if (configKeyMapping != null && configKeyMapping.consumeClick()) {
+        if (com.fluxsyum.cullify.client.ClientModBusSubscriber.configKeyMapping != null &&
+            com.fluxsyum.cullify.client.ClientModBusSubscriber.configKeyMapping.consumeClick()) {
             mc.setScreen(new com.fluxsyum.cullify.client.CullifyConfigScreen(null));
         }
 
         Vec3 cameraPos;
         if (mc.gameRenderer != null && mc.gameRenderer.getMainCamera() != null &&
                 mc.gameRenderer.getMainCamera().isInitialized()) {
-            cameraPos = mc.gameRenderer.getMainCamera().getPosition();
+            cameraPos = mc.gameRenderer.getMainCamera().position();
         } else {
             cameraPos = player.position();
         }
@@ -140,12 +203,10 @@ public class ClientEventHandler {
             ticksSinceLastCheck = 0;
             debugTickCounter = 0;
             CullifyMod.updateConfigCache();
-            CullifyMod.voxelGridDirty = true;
             CullifyDebugManager.syncFromConfig();
             return;
         }
 
-        // Detect config changes each tick to trigger re-renders
         boolean enabled      = CullifyConfig.ENABLED.get();
         boolean cullGrass    = CullifyConfig.CULL_GRASS.get();
         boolean cullFlowers  = CullifyConfig.CULL_FLOWERS.get();
@@ -154,6 +215,9 @@ public class ClientEventHandler {
         int     flowerDist   = CullifyConfig.FLOWER_CULL_DISTANCE.get();
         int     otherDist    = CullifyConfig.OTHER_PLANT_CULL_DISTANCE.get();
         CullifyConfig.CullingShape cullingShape = CullifyConfig.CULLING_SHAPE.get();
+        boolean smartScale   = CullifyConfig.SMART_SCALE.get();
+        int     targetFps    = CullifyConfig.TARGET_FPS.get();
+        boolean lightAware   = CullifyConfig.LIGHT_AWARE_CULLING.get();
 
         if (enabled != lastEnabled
                 || cullGrass    != lastCullGrass
@@ -162,7 +226,10 @@ public class ClientEventHandler {
                 || grassDist    != lastGrassDist
                 || flowerDist   != lastFlowerDist
                 || otherDist    != lastOtherDist
-                || cullingShape != lastCullingShape) {
+                || cullingShape != lastCullingShape
+                || smartScale   != lastSmartScale
+                || targetFps    != lastTargetFps
+                || lightAware   != lastLightAware) {
             lastEnabled      = enabled;
             lastCullGrass    = cullGrass;
             lastCullFlowers  = cullFlowers;
@@ -171,13 +238,48 @@ public class ClientEventHandler {
             lastFlowerDist   = flowerDist;
             lastOtherDist    = otherDist;
             lastCullingShape = cullingShape;
+            lastSmartScale   = smartScale;
+            lastTargetFps    = targetFps;
+            lastLightAware   = lightAware;
             sectionStates.clear();
-            CullifyConfig.save();
+            CullifyMod.sectionLightFactors.clear();
+            scheduleDebouncedSave();
             CullifyMod.updateConfigCache();
             CullifyMod.incrementConfigVersion();
-            CullifyMod.voxelGridDirty = true;
             CullifyMod.scheduleWorldReload();
         }
+
+        // Smart Scale: adjust the distance multiplier every 20 ticks based on current FPS
+        if (CullifyMod.cachedSmartScale) {
+            smartScaleTickCounter++;
+            if (smartScaleTickCounter >= 20) {
+                smartScaleTickCounter = 0;
+                int currentFps = mc.getFps();
+                int target = CullifyMod.cachedTargetFps;
+                float factor = CullifyMod.smartScaleFactor;
+                if (currentFps < target) {
+                    // FPS below target: shrink distances (min 0.5)
+                    factor = Math.max(0.5f, factor - 0.05f);
+                } else if (currentFps >= target + 10) {
+                    // FPS comfortably above target: expand distances back (max 1.0)
+                    factor = Math.min(1.0f, factor + 0.05f);
+                }
+                if (factor != CullifyMod.smartScaleFactor) {
+                    CullifyMod.smartScaleFactor = factor;
+                    CullifyMod.updateScaledDistances();
+                }
+            }
+        } else {
+            // Reset factor when Smart Scale is disabled
+            if (CullifyMod.smartScaleFactor != 1.0f) {
+                CullifyMod.smartScaleFactor = 1.0f;
+                CullifyMod.updateScaledDistances();
+                smartScaleTickCounter = 0;
+            }
+        }
+
+        // Benchmark tick update
+        com.fluxsyum.cullify.benchmark.BenchmarkManager.checkTime();
 
         debugTickCounter++;
         if (debugTickCounter >= 20) {
@@ -198,19 +300,11 @@ public class ClientEventHandler {
             double dz = cameraPos.z - lastPlayerZ;
             double distMovedSq = dx * dx + dy * dy + dz * dz;
 
-            if (distMovedSq > 0.25) {
+            if (distMovedSq > 4.0) {
                 // Update position snapshot immediately so the next tick doesn't re-trigger
                 lastPlayerX = cameraPos.x;
                 lastPlayerY = cameraPos.y;
                 lastPlayerZ = cameraPos.z;
-
-                // Rebuild voxel grid on background thread if dirty or player moved significantly
-                if (CullifyMod.voxelGridDirty || distMovedSq > 16.0) {
-                    final double rpx = cameraPos.x;
-                    final double rpy = cameraPos.y;
-                    final double rpz = cameraPos.z;
-                    ASYNC_CLASSIFIER.submit(() -> CullifyMod.rebuildVoxelGrid(rpx, rpy, rpz));
-                }
 
                 // Submit section classification to background thread — at most one pending at a time
                 if (classifierPending.compareAndSet(false, true)) {
@@ -233,19 +327,33 @@ public class ClientEventHandler {
         player.sendSystemMessage(Component.literal(message));
     }
 
-    public static void registerCommands(CommandDispatcher<FabricClientCommandSource> dispatcher) {
+    public static void register() {
+        ClientTickEvents.END_CLIENT_TICK.register(mc -> {
+            onClientTick(mc);
+        });
+
+        LevelRenderEvents.START_MAIN.register(context -> {
+            onRenderFrame();
+        });
+
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
+            registerCommands(dispatcher);
+        });
+    }
+
+    public static void registerCommands(CommandDispatcher<net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource> dispatcher) {
         dispatcher.register(
-            ClientCommandManager.literal("cullify")
-                .then(ClientCommandManager.literal("menu").executes(ctx -> {
+            literal("cullify")
+                .then(literal("menu").executes(ctx -> {
                     Minecraft.getInstance().execute(() -> {
                         Minecraft.getInstance().setScreen(new com.fluxsyum.cullify.client.CullifyConfigScreen(null));
                     });
                     return 1;
                 }))
-                .then(ClientCommandManager.literal("debug").executes(ctx -> {
+                .then(literal("debug").executes(ctx -> {
                     boolean newState = !CullifyConfig.DEBUG_MODE.get();
                     CullifyConfig.DEBUG_MODE.set(newState);
-                    CullifyConfig.save();
+                    scheduleDebouncedSave();
                     CullifyDebugManager.syncFromConfig();
                     Minecraft mc = Minecraft.getInstance();
                     LocalPlayer player = mc.player;
@@ -254,11 +362,10 @@ public class ClientEventHandler {
                     }
                     return 1;
                 }))
-                .then(ClientCommandManager.literal("reload").executes(ctx -> {
+                .then(literal("reload").executes(ctx -> {
                     sectionStates.clear();
                     CullifyMod.updateConfigCache();
                     CullifyMod.incrementConfigVersion();
-                    CullifyMod.voxelGridDirty = true;
                     CullifyMod.scheduleWorldReload();
                     Minecraft mc = Minecraft.getInstance();
                     LocalPlayer player = mc.player;
@@ -267,7 +374,7 @@ public class ClientEventHandler {
                     }
                     return 1;
                 }))
-                .then(ClientCommandManager.literal("stats").executes(ctx -> {
+                .then(literal("stats").executes(ctx -> {
                     Minecraft mc = Minecraft.getInstance();
                     LocalPlayer player = mc.player;
                     if (player != null) {
@@ -294,13 +401,13 @@ public class ClientEventHandler {
                     }
                     return 1;
                 }))
-                .then(ClientCommandManager.literal("verbose").executes(ctx -> {
+                .then(literal("verbose").executes(ctx -> {
                     if (CullifyDebugManager.debugLevel == CullifyDebugManager.DebugLevel.VERBOSE) {
                         CullifyDebugManager.debugLevel = CullifyDebugManager.DebugLevel.BASIC;
                     } else {
                         CullifyDebugManager.debugLevel = CullifyDebugManager.DebugLevel.VERBOSE;
                         CullifyConfig.DEBUG_MODE.set(true);
-                        CullifyConfig.save();
+                        scheduleDebouncedSave();
                     }
                     Minecraft mc = Minecraft.getInstance();
                     LocalPlayer player = mc.player;
@@ -309,65 +416,34 @@ public class ClientEventHandler {
                     }
                     return 1;
                 }))
+                .then(literal("benchmark")
+                    .then(literal("start")
+                        .then(argument("seconds", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1, 3600))
+                            .executes(context -> {
+                                int seconds = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(context, "seconds");
+                                if (com.fluxsyum.cullify.benchmark.BenchmarkManager.isRunning()) {
+                                    context.getSource().sendError(Component.literal("Benchmark is already running!"));
+                                    return 0;
+                                }
+                                com.fluxsyum.cullify.benchmark.BenchmarkManager.start(seconds);
+                                context.getSource().sendFeedback(Component.literal("§aStarted Cullify benchmark for " + seconds + " seconds."));
+                                return 1;
+                            })
+                        )
+                    )
+                    .then(literal("stop")
+                        .executes(context -> {
+                            if (!com.fluxsyum.cullify.benchmark.BenchmarkManager.isRunning()) {
+                                context.getSource().sendError(Component.literal("No benchmark is currently running."));
+                                return 0;
+                            }
+                            com.fluxsyum.cullify.benchmark.BenchmarkManager.stop();
+                            context.getSource().sendFeedback(Component.literal("§eBenchmark stopped manually."));
+                            return 1;
+                        })
+                    )
+                )
         );
-    }
-
-    public static void renderDebugHud(net.minecraft.client.gui.GuiGraphics graphics) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.options.hideGui || mc.gameMode == null) {
-            return;
-        }
-
-        if (!CullifyConfig.DEBUG_MODE.get()) {
-            return;
-        }
-
-        int x = 10;
-        int y = 10;
-        int w = 185;
-        int h = 125;
-
-        // Render background card
-        graphics.fill(x, y, x + w, y + h, 0xBB1E1E1E);
-        
-        // Border outline
-        graphics.fill(x, y, x + w, y + 1, 0x44FFFFFF);
-        graphics.fill(x, y + h - 1, x + w, y + h, 0x44FFFFFF);
-        graphics.fill(x, y, x + 1, y + h, 0x44FFFFFF);
-        graphics.fill(x + w - 1, y, x + w, y + h, 0x44FFFFFF);
-
-        // Mod logo
-        graphics.blit(LOGO_RL, x + 8, y + 8, 0.0f, 0.0f, 16, 16, 16, 16);
-
-        net.minecraft.client.gui.Font font = mc.font;
-        graphics.drawString(font, "§e§lCullify Debug", x + 30, y + 12, 0xFFFFFFFF, false);
-        graphics.fill(x + 8, y + 30, x + w - 8, y + 31, 0x33FFFFFF);
-
-        boolean enabled = CullifyConfig.ENABLED.get();
-        boolean sodium = CullifyDebugManager.sodiumDetected;
-        
-        String statusText = "Status: " + (enabled ? "§aEnabled" : "§cDisabled");
-        String pathText = "Renderer: " + (sodium ? "§bSodium" : "§7Vanilla");
-
-        String grassText = "Cull Grass: " + (CullifyConfig.CULL_GRASS.get() ? "§aON §7(" + CullifyConfig.GRASS_CULL_DISTANCE.get() + "m)" : "§cOFF");
-        String flowersText = "Cull Flowers: " + (CullifyConfig.CULL_FLOWERS.get() ? "§aON §7(" + CullifyConfig.FLOWER_CULL_DISTANCE.get() + "m)" : "§cOFF");
-        String otherText = "Cull Other: " + (CullifyConfig.CULL_OTHER_PLANTS.get() ? "§aON §7(" + CullifyConfig.OTHER_PLANT_CULL_DISTANCE.get() + "m)" : "§cOFF");
-
-        String hiddenText = "Hidden: §e" + CullifyDebugManager.lastCulledBlocks;
-        String waterText = "Waterlogged: §9" + CullifyDebugManager.lastWaterReplacements;
-        String drawsText = "Draws: §d" + (sodium ? "MDI" : CullifyDebugManager.lastDrawCalls);
-
-        graphics.drawString(font, statusText, x + 10, y + 37, 0xFFFFFFFF, false);
-        graphics.drawString(font, pathText, x + 10, y + 47, 0xFFFFFFFF, false);
-        graphics.drawString(font, grassText, x + 10, y + 57, 0xFFFFFFFF, false);
-        graphics.drawString(font, flowersText, x + 10, y + 67, 0xFFFFFFFF, false);
-        graphics.drawString(font, otherText, x + 10, y + 77, 0xFFFFFFFF, false);
-        
-        graphics.fill(x + 8, y + 89, x + w - 8, y + 90, 0x22FFFFFF);
-        
-        graphics.drawString(font, hiddenText, x + 10, y + 95, 0xFFFFFFFF, false);
-        graphics.drawString(font, waterText, x + 10, y + 105, 0xFFFFFFFF, false);
-        graphics.drawString(font, drawsText, x + 10, y + 115, 0xFFFFFFFF, false);
     }
 
     /**
@@ -393,8 +469,8 @@ public class ClientEventHandler {
         int pSecZ = ((int) cameraPos.z) >> 4;
         int secRange = ((int) maxDist + 16) >> 4;
 
-        int minSecY = level.getMinSection();
-        int maxSecY = level.getMaxSection() - 1;
+        int minSecY = level.getMinSectionY();
+        int maxSecY = level.getMaxSectionY() - 1;
 
         double px = cameraPos.x;
         double py = cameraPos.y;
@@ -403,7 +479,8 @@ public class ClientEventHandler {
         int currentTick = tickCounter;
 
         // Collect sections that need a render rebuild; dispatched to main thread below
-        List<long[]> dirtyPositions = new ArrayList<>();
+        List<Long> dirtyPositions = new ArrayList<>();
+        net.minecraft.core.BlockPos.MutableBlockPos mutablePos = new net.minecraft.core.BlockPos.MutableBlockPos();
 
         for (int sx = pSecX - secRange; sx <= pSecX + secRange; sx++) {
             double minX  = sx << 4;
@@ -412,8 +489,12 @@ public class ClientEventHandler {
             double farDx  = px < minX + 8.0 ? maxX - px : px - minX;
 
             for (int sz = pSecZ - secRange; sz <= pSecZ + secRange; sz++) {
-                if (!level.getChunkSource().hasChunk(sx, sz)) {
-                    continue;
+                try {
+                    if (!level.getChunkSource().hasChunk(sx, sz)) {
+                        continue;
+                    }
+                } catch (Exception e) {
+                    continue; // Chunk source modified concurrently or level closed, skip safely
                 }
                 double minZ   = sz << 4;
                 double maxZ   = minZ + 16.0;
@@ -461,7 +542,8 @@ public class ClientEventHandler {
                             double rDx = px - secState.lastRebuildX;
                             double rDy = py - secState.lastRebuildY;
                             double rDz = pz - secState.lastRebuildZ;
-                            if (rDx * rDx + rDy * rDy + rDz * rDz > 4.0) {
+                            // Wait for player to move 6 blocks before rebuilding partially culled sections
+                            if (rDx * rDx + rDy * rDy + rDz * rDz > 36.0) {
                                 rebuild = true;
                                 secState.lastRebuildX = px;
                                 secState.lastRebuildY = py;
@@ -471,15 +553,45 @@ public class ClientEventHandler {
                     }
 
                     if (rebuild) {
-                        dirtyPositions.add(new long[]{sx, sy, sz});
+                        dirtyPositions.add(posLong);
                     }
+
+                    // Light-Aware Culling: compute section light importance factor
+                    if (CullifyMod.cachedLightAware) {
+                        try {
+                            // Sample brightness at the center block of this section
+                            int cx = (sx << 4) + 8;
+                            int cy = (sy << 4) + 8;
+                            int cz = (sz << 4) + 8;
+                            mutablePos.set(cx, cy, cz);
+                            int sky   = level.getBrightness(net.minecraft.world.level.LightLayer.SKY, mutablePos);
+                            int block = level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, mutablePos);
+                            // Weight sky light more heavily — a single torch should not fully restore distance
+                            float importance = (0.75f * sky + 0.25f * block) / 15.0f;
+                            // Clamp to [0.3, 1.0]: fully dark = 30% of configured distance; full sun = 100%
+                            float lightFactor = Math.clamp(0.3f + 0.7f * importance, 0.3f, 1.0f);
+                            Float existing = CullifyMod.sectionLightFactors.get(posLong);
+                            if (existing == null || Math.abs(existing - lightFactor) > 0.04f) {
+                                CullifyMod.sectionLightFactors.put(posLong, lightFactor);
+                                // Trigger a re-render so the new effective radius takes effect
+                                if (!rebuild) dirtyPositions.add(posLong);
+                            }
+                        } catch (Exception ignored) {
+                            // Section may not be fully loaded — skip safely
+                        }
+                    }
+
                 }
             }
         }
 
         // Evict stale entries (safe on ConcurrentHashMap)
         if (currentTick % 20 == 0) {
-            sectionStates.entrySet().removeIf(entry -> entry.getValue().lastSeenTick != currentTick);
+            sectionStates.entrySet().removeIf(entry -> (currentTick - entry.getValue().lastSeenTick) > 20);
+            // Also evict light factors for sections no longer tracked
+            if (CullifyMod.cachedLightAware) {
+                CullifyMod.sectionLightFactors.keySet().retainAll(sectionStates.keySet());
+            }
         }
 
         // Dispatch dirty-marking to the main/render thread — invokeSetSectionDirty is not thread-safe
@@ -491,8 +603,11 @@ public class ClientEventHandler {
                 com.fluxsyum.cullify.mixin.LevelRendererAccessor acc =
                     (com.fluxsyum.cullify.mixin.LevelRendererAccessor) lr;
                 if (acc.getViewArea() == null) return;
-                for (long[] pos : dirtyPositions) {
-                    acc.invokeSetSectionDirty((int) pos[0], (int) pos[1], (int) pos[2], false);
+                for (long packed : dirtyPositions) {
+                    int sx = net.minecraft.core.SectionPos.x(packed);
+                    int sy = net.minecraft.core.SectionPos.y(packed);
+                    int sz = net.minecraft.core.SectionPos.z(packed);
+                    acc.invokeSetSectionDirty(sx, sy, sz, false);
                     CullifyDebugManager.chunkUpdates.increment();
                 }
             });
@@ -508,46 +623,56 @@ public class ClientEventHandler {
         // Use cached shape to avoid SPEC.get() overhead
         CullifyConfig.CullingShape shape = CullifyMod.cachedShape;
 
-        // Fast early-out: nearest corner is already beyond threshold → fully culled
+        // Fast culling check (if the minimum distance is greater than the threshold, it is outside)
         if (shape == CullifyConfig.CullingShape.SPHERE) {
             double minDistSq = nearDx * nearDx + nearDy * nearDy + nearDz * nearDz;
             if (minDistSq > threshold * threshold) return 2;
+            
+            // Farthest corner check for Sphere
+            double maxDistSq = farDx * farDx + farDy * farDy + farDz * farDz;
+            if (maxDistSq <= threshold * threshold) return 1;
+            return 0;
         } else if (shape == CullifyConfig.CullingShape.BOX) {
             double minDist = Math.max(nearDx, Math.max(nearDy, nearDz));
             if (minDist > threshold) return 2;
+            
+            // Farthest corner check for Box
+            double maxDist = Math.max(farDx, Math.max(farDy, farDz));
+            if (maxDist <= threshold) return 1;
+            return 0;
+        } else if (shape == CullifyConfig.CullingShape.CYLINDER || shape == CullifyConfig.CullingShape.CIRCLE) {
+            double minDistSq = nearDx * nearDx + nearDz * nearDz;
+            if (minDistSq > threshold * threshold) return 2;
+            
+            // Farthest corner check in XZ plane
+            double maxDistSq = farDx * farDx + farDz * farDz;
+            if (maxDistSq <= threshold * threshold) return 1;
+            return 0;
         } else if (shape == CullifyConfig.CullingShape.SQUARE) {
             double minDist = Math.max(nearDx, nearDz);
             if (minDist > threshold) return 2;
-        } else { // CYLINDER, CIRCLE, TRIANGLE, HEXAGON, STAR
+            
+            // Farthest corner check in XZ plane
+            double maxDist = Math.max(farDx, farDz);
+            if (maxDist <= threshold) return 1;
+            return 0;
+        } else { // TRIANGLE, HEXAGON, STAR
             double minDistSq = nearDx * nearDx + nearDz * nearDz;
             if (minDistSq > threshold * threshold) return 2;
         }
 
-        // For BOX: check if entire AABB is inside
-        if (shape == CullifyConfig.CullingShape.BOX) {
-            double maxDist = Math.max(farDx, Math.max(farDy, farDz));
-            if (maxDist <= threshold) {
-                return 1;
-            }
-            return 0;
-        }
-
-        // General case: check all corners
+        // Check if the corners are contained in the shape (sufficient for 2D convex shapes)
         boolean c1 = CullifyMod.isInShape(nearDx, nearDy, nearDz, threshold, shape);
-        boolean c2 = CullifyMod.isInShape(nearDx, nearDy, farDz,  threshold, shape);
-        boolean c3 = CullifyMod.isInShape(farDx,  nearDy, nearDz, threshold, shape);
-        boolean c4 = CullifyMod.isInShape(farDx,  nearDy, farDz,  threshold, shape);
+        boolean c2 = CullifyMod.isInShape(nearDx, nearDy, farDz, threshold, shape);
+        boolean c3 = CullifyMod.isInShape(farDx, nearDy, nearDz, threshold, shape);
+        boolean c4 = CullifyMod.isInShape(farDx, nearDy, farDz, threshold, shape);
 
         boolean fullyIn = c1 && c2 && c3 && c4;
 
-        if (shape == CullifyConfig.CullingShape.SPHERE) {
-            boolean c5 = CullifyMod.isInShape(nearDx, farDy, nearDz, threshold, shape);
-            boolean c6 = CullifyMod.isInShape(nearDx, farDy, farDz,  threshold, shape);
-            boolean c7 = CullifyMod.isInShape(farDx,  farDy, nearDz, threshold, shape);
-            boolean c8 = CullifyMod.isInShape(farDx,  farDy, farDz,  threshold, shape);
-            fullyIn = fullyIn && c5 && c6 && c7 && c8;
+        if (fullyIn) {
+            return 1;
         }
 
-        return fullyIn ? (byte) 1 : (byte) 0;
+        return 0;
     }
 }

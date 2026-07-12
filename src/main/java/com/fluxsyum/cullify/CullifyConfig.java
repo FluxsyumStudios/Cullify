@@ -2,10 +2,13 @@ package com.fluxsyum.cullify;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
 import net.fabricmc.loader.api.FabricLoader;
+
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.nio.file.Path;
 
 public class CullifyConfig {
     public enum CullingShape {
@@ -19,90 +22,104 @@ public class CullifyConfig {
         CIRCLE
     }
 
-    public static class ConfigValue<T> {
-        private T value;
+    public static final Property<Boolean> ENABLED = new Property<>(true);
+    public static final Property<CullingShape> CULLING_SHAPE = new Property<>(CullingShape.SPHERE);
+    public static final Property<Boolean> CULL_GRASS = new Property<>(true);
+    public static final Property<Boolean> CULL_FLOWERS = new Property<>(true);
+    public static final Property<Boolean> CULL_OTHER_PLANTS = new Property<>(true);
+    public static final Property<Integer> GRASS_CULL_DISTANCE = new Property<>(48);
+    public static final Property<Integer> FLOWER_CULL_DISTANCE = new Property<>(48);
+    public static final Property<Integer> OTHER_PLANT_CULL_DISTANCE = new Property<>(32);
+    public static final Property<Boolean> DEBUG_MODE = new Property<>(false);
+    public static final Property<Integer> LOD_DENSITY = new Property<>(100);
+    public static final Property<Boolean> SMART_SCALE = new Property<>(false);
+    public static final Property<Integer> TARGET_FPS = new Property<>(60);
+    public static final Property<Boolean> LIGHT_AWARE_CULLING = new Property<>(false);
 
-        public ConfigValue(T defaultValue) {
-            this.value = defaultValue;
-        }
-
-        public T get() {
-            return value;
-        }
-
-        public void set(T val) {
-            this.value = val;
-        }
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static File getConfigFile() {
+        Path configDir = FabricLoader.getInstance().getConfigDir();
+        return configDir.resolve("cullify.json").toFile();
     }
 
-    public static final ConfigValue<Boolean> ENABLED = new ConfigValue<>(true);
-    public static final ConfigValue<CullingShape> CULLING_SHAPE = new ConfigValue<>(CullingShape.SPHERE);
-    public static final ConfigValue<Boolean> CULL_GRASS = new ConfigValue<>(true);
-    public static final ConfigValue<Boolean> CULL_FLOWERS = new ConfigValue<>(true);
-    public static final ConfigValue<Boolean> CULL_OTHER_PLANTS = new ConfigValue<>(true);
-    public static final ConfigValue<Integer> GRASS_CULL_DISTANCE = new ConfigValue<>(48);
-    public static final ConfigValue<Integer> FLOWER_CULL_DISTANCE = new ConfigValue<>(48);
-    public static final ConfigValue<Integer> OTHER_PLANT_CULL_DISTANCE = new ConfigValue<>(32);
-    public static final ConfigValue<Boolean> DEBUG_MODE = new ConfigValue<>(false);
-    public static final ConfigValue<Integer> LOD_DENSITY = new ConfigValue<>(100);
-
-    private static final File CONFIG_FILE = new File(FabricLoader.getInstance().getConfigDir().toFile(), "cullify.json");
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-
     public static void load() {
-        if (!CONFIG_FILE.exists()) {
+        File file = getConfigFile();
+        if (!file.exists()) {
             save();
             return;
         }
-        try (FileReader reader = new FileReader(CONFIG_FILE)) {
-            ConfigData data = GSON.fromJson(reader, ConfigData.class);
-            if (data != null) {
-                if (data.enabled != null) ENABLED.set(data.enabled);
-                if (data.cullingShape != null) CULLING_SHAPE.set(data.cullingShape);
-                if (data.cullGrass != null) CULL_GRASS.set(data.cullGrass);
-                if (data.cullFlowers != null) CULL_FLOWERS.set(data.cullFlowers);
-                if (data.cullOtherPlants != null) CULL_OTHER_PLANTS.set(data.cullOtherPlants);
-                if (data.grassCullDistance != null) GRASS_CULL_DISTANCE.set(data.grassCullDistance);
-                if (data.flowerCullDistance != null) FLOWER_CULL_DISTANCE.set(data.flowerCullDistance);
-                if (data.otherPlantCullDistance != null) OTHER_PLANT_CULL_DISTANCE.set(data.otherPlantCullDistance);
-                if (data.debugMode != null) DEBUG_MODE.set(data.debugMode);
-                if (data.lodDensity != null) LOD_DENSITY.set(data.lodDensity);
+
+        try (FileReader reader = new FileReader(file)) {
+            JsonObject json = GSON.fromJson(reader, JsonObject.class);
+            if (json == null) return;
+
+            if (json.has("enabled")) ENABLED.set(json.get("enabled").getAsBoolean());
+            if (json.has("cullingShape")) {
+                try {
+                    CULLING_SHAPE.set(CullingShape.valueOf(json.get("cullingShape").getAsString().toUpperCase()));
+                } catch (Exception ignored) {}
             }
+            if (json.has("cullGrass")) CULL_GRASS.set(json.get("cullGrass").getAsBoolean());
+            if (json.has("cullFlowers")) CULL_FLOWERS.set(json.get("cullFlowers").getAsBoolean());
+            if (json.has("cullOtherPlants")) CULL_OTHER_PLANTS.set(json.get("cullOtherPlants").getAsBoolean());
+            if (json.has("grassCullDistance")) GRASS_CULL_DISTANCE.set(json.get("grassCullDistance").getAsInt());
+            if (json.has("flowerCullDistance")) FLOWER_CULL_DISTANCE.set(json.get("flowerCullDistance").getAsInt());
+            if (json.has("otherPlantCullDistance")) OTHER_PLANT_CULL_DISTANCE.set(json.get("otherPlantCullDistance").getAsInt());
+            if (json.has("debugMode")) DEBUG_MODE.set(json.get("debugMode").getAsBoolean());
+            if (json.has("lodDensity")) LOD_DENSITY.set(json.get("lodDensity").getAsInt());
+            if (json.has("smartScale")) SMART_SCALE.set(json.get("smartScale").getAsBoolean());
+            if (json.has("targetFps")) TARGET_FPS.set(json.get("targetFps").getAsInt());
+            if (json.has("lightAwareCulling")) LIGHT_AWARE_CULLING.set(json.get("lightAwareCulling").getAsBoolean());
+
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
     public static void save() {
-        ConfigData data = new ConfigData();
-        data.enabled = ENABLED.get();
-        data.cullingShape = CULLING_SHAPE.get();
-        data.cullGrass = CULL_GRASS.get();
-        data.cullFlowers = CULL_FLOWERS.get();
-        data.cullOtherPlants = CULL_OTHER_PLANTS.get();
-        data.grassCullDistance = GRASS_CULL_DISTANCE.get();
-        data.flowerCullDistance = FLOWER_CULL_DISTANCE.get();
-        data.otherPlantCullDistance = OTHER_PLANT_CULL_DISTANCE.get();
-        data.debugMode = DEBUG_MODE.get();
-        data.lodDensity = LOD_DENSITY.get();
+        File file = getConfigFile();
+        try {
+            File parent = file.getParentFile();
+            if (parent != null && !parent.exists()) {
+                parent.mkdirs();
+            }
 
-        try (FileWriter writer = new FileWriter(CONFIG_FILE)) {
-            GSON.toJson(data, writer);
+            JsonObject json = new JsonObject();
+            json.addProperty("enabled", ENABLED.get());
+            json.addProperty("cullingShape", CULLING_SHAPE.get().name());
+            json.addProperty("cullGrass", CULL_GRASS.get());
+            json.addProperty("cullFlowers", CULL_FLOWERS.get());
+            json.addProperty("cullOtherPlants", CULL_OTHER_PLANTS.get());
+            json.addProperty("grassCullDistance", GRASS_CULL_DISTANCE.get());
+            json.addProperty("flowerCullDistance", FLOWER_CULL_DISTANCE.get());
+            json.addProperty("otherPlantCullDistance", OTHER_PLANT_CULL_DISTANCE.get());
+            json.addProperty("debugMode", DEBUG_MODE.get());
+            json.addProperty("lodDensity", LOD_DENSITY.get());
+            json.addProperty("smartScale", SMART_SCALE.get());
+            json.addProperty("targetFps", TARGET_FPS.get());
+            json.addProperty("lightAwareCulling", LIGHT_AWARE_CULLING.get());
+
+            try (FileWriter writer = new FileWriter(file)) {
+                GSON.toJson(json, writer);
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private static class ConfigData {
-        Boolean enabled;
-        CullingShape cullingShape;
-        Boolean cullGrass;
-        Boolean cullFlowers;
-        Boolean cullOtherPlants;
-        Integer grassCullDistance;
-        Integer flowerCullDistance;
-        Integer otherPlantCullDistance;
-        Boolean debugMode;
-        Integer lodDensity;
+    public static class Property<T> {
+        private T value;
+
+        public Property(T defaultValue) {
+            this.value = defaultValue;
+        }
+
+        public T get() {
+            return this.value;
+        }
+
+        public void set(T newValue) {
+            this.value = newValue;
+        }
     }
 }

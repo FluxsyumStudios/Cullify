@@ -26,13 +26,7 @@ public class CullifyMixinConfigPlugin implements IMixinConfigPlugin {
 
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
-        boolean hasSodium = false;
-        try {
-            if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("sodium")) {
-                hasSodium = true;
-            }
-        } catch (Throwable ignored) {
-        }
+        boolean hasSodium = net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("sodium");
 
         if (mixinClassName.contains("MixinLevelSlice")) {
             return hasSodium;

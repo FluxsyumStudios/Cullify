@@ -7,7 +7,7 @@
   "plugin": "com.fluxsyum.cullify.mixin.CullifyMixinConfigPlugin",
   "mixins": [
     "MixinBlockState",
-    "MixinRenderChunkRegion",
+    "MixinRenderSectionRegion",
     "MixinLevelSlice",
     "MixinLevelRenderer",
     "MixinLevelRendererDrawCalls",
