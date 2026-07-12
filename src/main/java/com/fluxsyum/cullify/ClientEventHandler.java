@@ -83,6 +83,7 @@ public class ClientEventHandler {
     private static int lastFlowerDist = 48;
     private static int lastOtherDist = 32;
     private static CullifyConfig.CullingShape lastCullingShape = CullifyConfig.CullingShape.SPHERE;
+    private static int lastLodDensity = 100;
     private static boolean lastSmartScale = false;
     private static int lastTargetFps = 60;
     private static boolean lastLightAware = false;
@@ -202,11 +203,20 @@ public class ClientEventHandler {
             lastFlowerDist    = CullifyConfig.FLOWER_CULL_DISTANCE.get();
             lastOtherDist     = CullifyConfig.OTHER_PLANT_CULL_DISTANCE.get();
             lastCullingShape  = CullifyConfig.CULLING_SHAPE.get();
+            lastLodDensity    = CullifyConfig.LOD_DENSITY.get();
+            lastSmartScale    = CullifyConfig.SMART_SCALE.get();
+            lastTargetFps     = CullifyConfig.TARGET_FPS.get();
+            lastLightAware    = CullifyConfig.LIGHT_AWARE_CULLING.get();
             initialized = true;
             ticksSinceLastCheck = 0;
             debugTickCounter = 0;
+            smartScaleTickCounter = 0;
             CullifyMod.updateConfigCache();
             CullifyDebugManager.syncFromConfig();
+            // Trigger a full world reload so chunks already loaded when the player joined
+            // get re-meshed with culling active. Without this, only newly-loaded chunks get culled.
+            CullifyMod.incrementConfigVersion();
+            CullifyMod.scheduleWorldReload();
             return;
         }
 
@@ -218,6 +228,7 @@ public class ClientEventHandler {
         int     flowerDist   = CullifyConfig.FLOWER_CULL_DISTANCE.get();
         int     otherDist    = CullifyConfig.OTHER_PLANT_CULL_DISTANCE.get();
         CullifyConfig.CullingShape cullingShape = CullifyConfig.CULLING_SHAPE.get();
+        int     lodDensity   = CullifyConfig.LOD_DENSITY.get();
         boolean smartScale   = CullifyConfig.SMART_SCALE.get();
         int     targetFps    = CullifyConfig.TARGET_FPS.get();
         boolean lightAware   = CullifyConfig.LIGHT_AWARE_CULLING.get();
@@ -230,6 +241,7 @@ public class ClientEventHandler {
                 || flowerDist   != lastFlowerDist
                 || otherDist    != lastOtherDist
                 || cullingShape != lastCullingShape
+                || lodDensity   != lastLodDensity
                 || smartScale   != lastSmartScale
                 || targetFps    != lastTargetFps
                 || lightAware   != lastLightAware) {
@@ -241,6 +253,7 @@ public class ClientEventHandler {
             lastFlowerDist   = flowerDist;
             lastOtherDist    = otherDist;
             lastCullingShape = cullingShape;
+            lastLodDensity   = lodDensity;
             lastSmartScale   = smartScale;
             lastTargetFps    = targetFps;
             lastLightAware   = lightAware;
@@ -446,10 +459,11 @@ public class ClientEventHandler {
             return;
         }
 
-        // Use cached distances (already account for enabled flags returning -1 when disabled)
-        double grassDist  = CullifyMod.cachedCullGrass   ? CullifyMod.cachedGrassDist  : -1;
-        double flowerDist = CullifyMod.cachedCullFlowers  ? CullifyMod.cachedFlowerDist : -1;
-        double otherDist  = CullifyMod.cachedCullOther    ? CullifyMod.cachedOtherDist  : -1;
+        // Use Smart-Scale-adjusted distances so section classification matches
+        // the radii actually used for per-block culling (-1 = type disabled)
+        double grassDist  = CullifyMod.cachedCullGrass   ? CullifyMod.cachedGrassDistScaled  : -1;
+        double flowerDist = CullifyMod.cachedCullFlowers  ? CullifyMod.cachedFlowerDistScaled : -1;
+        double otherDist  = CullifyMod.cachedCullOther    ? CullifyMod.cachedOtherDistScaled  : -1;
 
         double maxDist = Math.max(grassDist, Math.max(flowerDist, otherDist));
         if (maxDist < 0) return;
