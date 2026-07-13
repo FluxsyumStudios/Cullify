@@ -1,6 +1,5 @@
 package com.fluxsyum.cullify.mixin;
 
-import com.fluxsyum.cullify.CullifyConfig;
 import com.fluxsyum.cullify.CullifyMod;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -36,7 +35,7 @@ public class MixinLevelRenderer {
             BlockState blockState,
             CallbackInfo ci) {
 
-        if (CullifyConfig.ENABLED.get() && CullifyMod.hasPlayer) {
+        if (CullifyMod.cachedEnabled && CullifyMod.hasPlayer) {
             if (CullifyMod.shouldCullNoCount(blockState, blockPos)) {
                 ci.cancel();
             }
