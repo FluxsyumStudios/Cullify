@@ -42,14 +42,14 @@ public class MixinLevelRenderer {
             float partialTick,
             CallbackInfo ci) {
 
-        if (this.level == null) return;
+        // Cheap cached-field early-out before touching the level (runs every frame)
+        if (!CullifyMod.cachedEnabled || !CullifyMod.hasPlayer || this.level == null) return;
+
         BlockPos blockPos = outlineState.pos();
         BlockState blockState = this.level.getBlockState(blockPos);
 
-        if (CullifyConfig.ENABLED.get() && CullifyMod.hasPlayer) {
-            if (CullifyMod.shouldCullNoCount(blockState, blockPos)) {
-                ci.cancel();
-            }
+        if (CullifyMod.shouldCullNoCount(blockState, blockPos)) {
+            ci.cancel();
         }
     }
 }

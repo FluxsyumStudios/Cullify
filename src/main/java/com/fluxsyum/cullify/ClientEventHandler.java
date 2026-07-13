@@ -487,10 +487,9 @@ public class ClientEventHandler {
         net.minecraft.core.BlockPos.MutableBlockPos mutablePos = new net.minecraft.core.BlockPos.MutableBlockPos();
 
         for (int sx = pSecX - secRange; sx <= pSecX + secRange; sx++) {
-            double minX  = sx << 4;
-            double maxX  = minX + 16.0;
-            double nearDx = px < minX ? minX - px : (px > maxX ? px - maxX : 0.0);
-            double farDx  = px < minX + 8.0 ? maxX - px : px - minX;
+            // Section bounds as signed offsets relative to the camera
+            double dMinX = (sx << 4) - px;
+            double dMaxX = dMinX + 16.0;
 
             for (int sz = pSecZ - secRange; sz <= pSecZ + secRange; sz++) {
                 try {
@@ -500,20 +499,19 @@ public class ClientEventHandler {
                 } catch (Exception e) {
                     continue; // Chunk source modified concurrently or level closed, skip safely
                 }
-                double minZ   = sz << 4;
-                double maxZ   = minZ + 16.0;
-                double nearDz = pz < minZ ? minZ - pz : (pz > maxZ ? pz - maxZ : 0.0);
-                double farDz  = pz < minZ + 8.0 ? maxZ - pz : pz - minZ;
+                double dMinZ = (sz << 4) - pz;
+                double dMaxZ = dMinZ + 16.0;
 
                 for (int sy = Math.max(minSecY, pSecY - secRange); sy <= Math.min(maxSecY, pSecY + secRange); sy++) {
-                    double minY   = sy << 4;
-                    double maxY   = minY + 16.0;
-                    double nearDy = py < minY ? minY - py : (py > maxY ? py - maxY : 0.0);
-                    double farDy  = py < minY + 8.0 ? maxY - py : py - minY;
+                    double dMinY = (sy << 4) - py;
+                    double dMaxY = dMinY + 16.0;
 
-                    byte gState = classifySection(nearDx, farDx, nearDy, farDy, nearDz, farDz, grassDist);
-                    byte fState = classifySection(nearDx, farDx, nearDy, farDy, nearDz, farDz, flowerDist);
-                    byte oState = classifySection(nearDx, farDx, nearDy, farDy, nearDz, farDz, otherDist);
+                    byte gState = CullifyMod.classifySection(dMinX, dMaxX, dMinY, dMaxY, dMinZ, dMaxZ, grassDist);
+                    // Equal thresholds classify identically — reuse instead of recomputing
+                    byte fState = flowerDist == grassDist ? gState
+                            : CullifyMod.classifySection(dMinX, dMaxX, dMinY, dMaxY, dMinZ, dMaxZ, flowerDist);
+                    byte oState = otherDist == grassDist ? gState : (otherDist == flowerDist ? fState
+                            : CullifyMod.classifySection(dMinX, dMaxX, dMinY, dMaxY, dMinZ, dMaxZ, otherDist));
 
                     Long posLong = net.minecraft.core.SectionPos.asLong(sx, sy, sz);
                     SectionState secState = sectionStates.get(posLong);
@@ -616,67 +614,5 @@ public class ClientEventHandler {
                 }
             });
         }
-    }
-
-    private static byte classifySection(double nearDx, double farDx, double nearDy, double farDy,
-                                        double nearDz, double farDz, double threshold) {
-        if (threshold < 0) {
-            return 1;
-        }
-
-        // Use cached shape to avoid SPEC.get() overhead
-        CullifyConfig.CullingShape shape = CullifyMod.cachedShape;
-
-        // Fast culling check (if the minimum distance is greater than the threshold, it is outside)
-        if (shape == CullifyConfig.CullingShape.SPHERE) {
-            double minDistSq = nearDx * nearDx + nearDy * nearDy + nearDz * nearDz;
-            if (minDistSq > threshold * threshold) return 2;
-            
-            // Farthest corner check for Sphere
-            double maxDistSq = farDx * farDx + farDy * farDy + farDz * farDz;
-            if (maxDistSq <= threshold * threshold) return 1;
-            return 0;
-        } else if (shape == CullifyConfig.CullingShape.BOX) {
-            double minDist = Math.max(nearDx, Math.max(nearDy, nearDz));
-            if (minDist > threshold) return 2;
-            
-            // Farthest corner check for Box
-            double maxDist = Math.max(farDx, Math.max(farDy, farDz));
-            if (maxDist <= threshold) return 1;
-            return 0;
-        } else if (shape == CullifyConfig.CullingShape.CYLINDER || shape == CullifyConfig.CullingShape.CIRCLE) {
-            double minDistSq = nearDx * nearDx + nearDz * nearDz;
-            if (minDistSq > threshold * threshold) return 2;
-            
-            // Farthest corner check in XZ plane
-            double maxDistSq = farDx * farDx + farDz * farDz;
-            if (maxDistSq <= threshold * threshold) return 1;
-            return 0;
-        } else if (shape == CullifyConfig.CullingShape.SQUARE) {
-            double minDist = Math.max(nearDx, nearDz);
-            if (minDist > threshold) return 2;
-            
-            // Farthest corner check in XZ plane
-            double maxDist = Math.max(farDx, farDz);
-            if (maxDist <= threshold) return 1;
-            return 0;
-        } else { // TRIANGLE, HEXAGON, STAR
-            double minDistSq = nearDx * nearDx + nearDz * nearDz;
-            if (minDistSq > threshold * threshold) return 2;
-        }
-
-        // Check if the corners are contained in the shape (sufficient for 2D convex shapes)
-        boolean c1 = CullifyMod.isInShape(nearDx, nearDy, nearDz, threshold, shape);
-        boolean c2 = CullifyMod.isInShape(nearDx, nearDy, farDz, threshold, shape);
-        boolean c3 = CullifyMod.isInShape(farDx, nearDy, nearDz, threshold, shape);
-        boolean c4 = CullifyMod.isInShape(farDx, nearDy, farDz, threshold, shape);
-
-        boolean fullyIn = c1 && c2 && c3 && c4;
-
-        if (fullyIn) {
-            return 1;
-        }
-
-        return 0;
     }
 }
