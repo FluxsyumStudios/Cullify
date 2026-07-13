@@ -199,34 +199,34 @@ public class MixinLevelSlice {
         final double otherDist = CullifyMod.getCullDistance(CullifyMod.PlantType.OTHER);
 
         for (int ly = 0; ly < 3; ly++) {
-            final double minY = originY + (ly << 4);
-            final double maxY = minY + 16.0;
-            final double nearDy = py < minY ? minY - py : (py > maxY ? py - maxY : 0.0);
-            final double farDy = py < minY + 8.0 ? maxY - py : py - minY;
+            // Section bounds as signed offsets relative to the camera
+            final double dMinY = originY + (ly << 4) - py;
+            final double dMaxY = dMinY + 16.0;
 
             int sy = (originY >> 4) + ly - 1;
 
             for (int lz = 0; lz < 3; lz++) {
-                final double minZ = originZ + (lz << 4);
-                final double maxZ = minZ + 16.0;
-                final double nearDz = pz < minZ ? minZ - pz : (pz > maxZ ? pz - maxZ : 0.0);
-                final double farDz = pz < minZ + 8.0 ? maxZ - pz : pz - minZ;
+                final double dMinZ = originZ + (lz << 4) - pz;
+                final double dMaxZ = dMinZ + 16.0;
 
                 int sz = (originZ >> 4) + lz - 1;
 
                 for (int lx = 0; lx < 3; lx++) {
-                    final double minX = originX + (lx << 4);
-                    final double maxX = minX + 16.0;
-                    final double nearDx = px < minX ? minX - px : (px > maxX ? px - maxX : 0.0);
-                    final double farDx = px < minX + 8.0 ? maxX - px : px - minX;
+                    final double dMinX = originX + (lx << 4) - px;
+                    final double dMaxX = dMinX + 16.0;
 
                     int sx = (originX >> 4) + lx - 1;
 
                     final int sectionIdx = ly * 9 + lz * 3 + lx;
 
-                    cullify$grassCache[sectionIdx] = cullify$classify(nearDx, farDx, nearDy, farDy, nearDz, farDz, grassDist);
-                    cullify$flowerCache[sectionIdx] = cullify$classify(nearDx, farDx, nearDy, farDy, nearDz, farDz, flowerDist);
-                    cullify$otherCache[sectionIdx] = cullify$classify(nearDx, farDx, nearDy, farDy, nearDz, farDz, otherDist);
+                    final byte gState = CullifyMod.classifySection(dMinX, dMaxX, dMinY, dMaxY, dMinZ, dMaxZ, grassDist);
+                    cullify$grassCache[sectionIdx] = gState;
+                    // Equal thresholds classify identically — reuse instead of recomputing
+                    cullify$flowerCache[sectionIdx] = flowerDist == grassDist ? gState
+                            : CullifyMod.classifySection(dMinX, dMaxX, dMinY, dMaxY, dMinZ, dMaxZ, flowerDist);
+                    cullify$otherCache[sectionIdx] = otherDist == grassDist ? gState
+                            : (otherDist == flowerDist ? cullify$flowerCache[sectionIdx]
+                            : CullifyMod.classifySection(dMinX, dMaxX, dMinY, dMaxY, dMinZ, dMaxZ, otherDist));
 
                     if (CullifyMod.cachedLightAware) {
                         long secKey = net.minecraft.core.SectionPos.asLong(sx, sy, sz);
@@ -248,63 +248,6 @@ public class MixinLevelSlice {
         }
     }
 
-    // Classify a section's culling status based on distances and threshold
-    @Unique
-    private static byte cullify$classify(double nearDx, double farDx, double nearDy, double farDy, double nearDz, double farDz, double threshold) {
-        if (threshold < 0) {
-            return FULLY_KEPT;
-        }
-
-        CullifyConfig.CullingShape shape = CullifyMod.cachedShape;
-
-        // Fast culling check (if the minimum distance is greater than the threshold, it is outside)
-        if (shape == CullifyConfig.CullingShape.SPHERE) {
-            double minDistSq = nearDx * nearDx + nearDy * nearDy + nearDz * nearDz;
-            if (minDistSq > threshold * threshold) return FULLY_CULLED;
-
-            double maxDistSq = farDx * farDx + farDy * farDy + farDz * farDz;
-            if (maxDistSq <= threshold * threshold) return FULLY_KEPT;
-            return STRADDLING;
-        } else if (shape == CullifyConfig.CullingShape.BOX) {
-            double minDist = Math.max(nearDx, Math.max(nearDy, nearDz));
-            if (minDist > threshold) return FULLY_CULLED;
-
-            double maxDist = Math.max(farDx, Math.max(farDy, farDz));
-            if (maxDist <= threshold) return FULLY_KEPT;
-            return STRADDLING;
-        } else if (shape == CullifyConfig.CullingShape.CYLINDER || shape == CullifyConfig.CullingShape.CIRCLE) {
-            double minDistSq = nearDx * nearDx + nearDz * nearDz;
-            if (minDistSq > threshold * threshold) return FULLY_CULLED;
-
-            double maxDistSq = farDx * farDx + farDz * farDz;
-            if (maxDistSq <= threshold * threshold) return FULLY_KEPT;
-            return STRADDLING;
-        } else if (shape == CullifyConfig.CullingShape.SQUARE) {
-            double minDist = Math.max(nearDx, nearDz);
-            if (minDist > threshold) return FULLY_CULLED;
-
-            double maxDist = Math.max(farDx, farDz);
-            if (maxDist <= threshold) return FULLY_KEPT;
-            return STRADDLING;
-        } else { // TRIANGLE, HEXAGON, STAR
-            double minDistSq = nearDx * nearDx + nearDz * nearDz;
-            if (minDistSq > threshold * threshold) return FULLY_CULLED;
-        }
-
-        // Check if the corners are contained in the shape (sufficient for 2D convex shapes)
-        boolean c1 = CullifyMod.isInShape(nearDx, nearDy, nearDz, threshold, shape);
-        boolean c2 = CullifyMod.isInShape(nearDx, nearDy, farDz, threshold, shape);
-        boolean c3 = CullifyMod.isInShape(farDx, nearDy, nearDz, threshold, shape);
-        boolean c4 = CullifyMod.isInShape(farDx, nearDy, farDz, threshold, shape);
-
-        boolean fullyIn = c1 && c2 && c3 && c4;
-
-        if (fullyIn) {
-            return FULLY_KEPT;
-        }
-
-        return STRADDLING;
-    }
 
     // Retrieve cached culling status for a plant type
     @Unique
