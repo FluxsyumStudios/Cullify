@@ -4,6 +4,22 @@ All notable changes to **Cullify** are documented here.
 
 ---
 
+## [1.4.5] - 2026-07-13
+
+### 🐛 Bug Fixes (Calculation Logic)
+* **📐 Shape Classification Fix (TRIANGLE / STAR)**: The chunk-section classifier used unsigned (mirrored) distances, so asymmetric shapes were evaluated as if every section sat in the positive quadrant. Sections behind the player could be wrongly marked "fully kept" (vegetation never culled) or wrongly culled. The classifier now receives signed section bounds and matches the per-block shape math exactly on every side of the player.
+* **⬡ Hexagon Over-Culling Fix**: The fast radial rejection used the configured limit as the culling radius, but the hexagon's farthest corners extend to ~115% of the limit. Sections near the hexagon's Z-extremes were culled while still inside the visible shape. The rejection now uses the true circumradius.
+* **⭐ Star Concavity Fix**: The star shape is concave (union of two triangles), so a section whose four corners are inside the union is not necessarily fully inside. Sections are now only marked "fully kept" when all corners sit inside the same triangle.
+* **🎲 LOD Hash Quality**: Completed the fmix64 finalizer (both multiply rounds) in the deterministic LOD density hash, removing visible stripe patterns in thinned vegetation at low density settings.
+
+### ⚡ Performance Optimizations
+* **♻️ Shared Section Classifier**: Unified the duplicated section-classification math from `ClientEventHandler` and the Sodium `LevelSlice` mixin into a single, corrected implementation in `CullifyMod`.
+* **🟰 Equal-Distance Reuse**: When grass/flower/other culling distances are equal (the default), the section classifier now computes the result once and reuses it, skipping up to 2/3 of the classification work.
+* **🖱️ Hit-Outline Early-Out**: The block-outline mixin now checks the cached enable flags before fetching the block state, removing per-frame config lookups.
+* **💾 Atomic Config Saves** *(Fabric)*: The config file is written to a temp file and atomically moved into place, so a crash mid-save can never corrupt `cullify.json`.
+
+---
+
 ## [Unreleased] / [1.0.1]
 
 ### ✨ New Features

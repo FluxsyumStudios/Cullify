@@ -99,9 +99,14 @@ public class CullifyConfig {
             json.addProperty("targetFps", TARGET_FPS.get());
             json.addProperty("lightAwareCulling", LIGHT_AWARE_CULLING.get());
 
-            try (FileWriter writer = new FileWriter(file)) {
+            // Write to a temp file and move into place so a crash mid-write
+            // can never leave a truncated/corrupted config behind
+            File tmp = new File(file.getAbsolutePath() + ".tmp");
+            try (FileWriter writer = new FileWriter(tmp)) {
                 GSON.toJson(json, writer);
             }
+            java.nio.file.Files.move(tmp.toPath(), file.toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         } catch (Exception e) {
             e.printStackTrace();
         }

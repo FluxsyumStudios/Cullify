@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class CullifyMod implements ClientModInitializer {
     public static final String MOD_ID = "cullify";
-    public static String VERSION = "1.3.1";
+    public static String VERSION = "1.4.5";
     public static final ResourceLocation LOGO = ResourceLocation.fromNamespaceAndPath(MOD_ID, "textures/gui/logo.png");
 
     // -----------------------------------------------------------------------
@@ -138,9 +138,14 @@ public class CullifyMod implements ClientModInitializer {
         if (density >= 100) return true;
         if (density <= 0)   return false;
         // Combine coordinates with large primes and fold into 0-99 range
+        // (full fmix64 finalizer: both multiply rounds are needed for a clean
+        // avalanche, otherwise neighbouring coordinates produce visible stripes)
         long hash = (x * PRIME_X) ^ (y * PRIME_Y) ^ (z * PRIME_Z);
         hash ^= (hash >>> 33);
         hash *= 0xff51afd7ed558ccdL;
+        hash ^= (hash >>> 33);
+        hash *= 0xc4ceb9fe1a85ec53L;
+        hash ^= (hash >>> 33);
         // Fast-range reduction: maps the low 32 bits to 0-99 without a modulo
         int bucket = (int) (((hash & 0xFFFFFFFFL) * 100) >>> 32);
         return bucket < density;
@@ -157,7 +162,7 @@ public class CullifyMod implements ClientModInitializer {
 
         VERSION = FabricLoader.getInstance().getModContainer(MOD_ID)
                 .map(container -> container.getMetadata().getVersion().getFriendlyString())
-                .orElse("1.4.0");
+                .orElse("1.4.5");
 
         CullifyDebugManager.sodiumDetected = FabricLoader.getInstance().isModLoaded("sodium");
 
@@ -300,11 +305,8 @@ public class CullifyMod implements ClientModInitializer {
                 return (dz >= -limit / 2.0) && (dz <= limit - Math.abs(dx) * 1.73205080757);
             case HEXAGON:
                 return Math.abs(dx) <= limit && (Math.abs(dx) * 0.5 + Math.abs(dz) * 0.86602540378 <= limit);
-            case STAR: {
-                boolean inTriangleUp   = (dz >= -limit / 2.0) && (dz <= limit - Math.abs(dx) * 1.73205080757);
-                boolean inTriangleDown = (dz <= limit / 2.0)  && (dz >= -limit + Math.abs(dx) * 1.73205080757);
-                return inTriangleUp || inTriangleDown;
-            }
+            case STAR:
+                return isInTriangleUp(dx, dz, limit) || isInTriangleDown(dx, dz, limit);
             case SQUARE:
                 return Math.abs(dx) <= limit && Math.abs(dz) <= limit;
             case CIRCLE:
@@ -320,6 +322,101 @@ public class CullifyMod implements ClientModInitializer {
 
     public static boolean isOutsideShape(double dx, double dy, double dz, double limit) {
         return !isInShape(dx, dy, dz, limit, cachedShape);
+    }
+
+    private static boolean isInTriangleUp(double dx, double dz, double limit) {
+        return (dz >= -limit / 2.0) && (dz <= limit - Math.abs(dx) * 1.73205080757);
+    }
+
+    private static boolean isInTriangleDown(double dx, double dz, double limit) {
+        return (dz <= limit / 2.0) && (dz >= -limit + Math.abs(dx) * 1.73205080757);
+    }
+
+    // -----------------------------------------------------------------------
+    // Section classification — shared by ClientEventHandler (dirty-section
+    // scanning) and MixinLevelSlice (27-section AABB cache).
+    //
+    // Takes the section bounds as SIGNED offsets relative to the camera
+    // (dMin = sectionMin - camera, dMax = sectionMax - camera) so that
+    // asymmetric shapes (TRIANGLE, STAR extend further in +Z than -Z) and
+    // oversized ones (HEXAGON's circumradius exceeds the limit) classify
+    // correctly on every side of the player.
+    // -----------------------------------------------------------------------
+    public static final byte SECTION_STRADDLING   = 0;
+    public static final byte SECTION_FULLY_KEPT   = 1;
+    public static final byte SECTION_FULLY_CULLED = 2;
+
+    /** The hexagon's farthest point sits at 2/sqrt(3) * limit from the center. */
+    private static final double HEXAGON_CIRCUMRADIUS = 1.1547005383792517;
+
+    public static byte classifySection(double dMinX, double dMaxX, double dMinY, double dMaxY,
+                                       double dMinZ, double dMaxZ, double threshold) {
+        if (threshold < 0) {
+            return SECTION_FULLY_KEPT;
+        }
+
+        CullifyConfig.CullingShape shape = cachedShape;
+
+        // Nearest/farthest absolute per-axis distances from the camera to the box
+        double nearDx = dMinX > 0 ? dMinX : (dMaxX < 0 ? -dMaxX : 0.0);
+        double nearDy = dMinY > 0 ? dMinY : (dMaxY < 0 ? -dMaxY : 0.0);
+        double nearDz = dMinZ > 0 ? dMinZ : (dMaxZ < 0 ? -dMaxZ : 0.0);
+        double farDx = Math.max(-dMinX, dMaxX);
+        double farDy = Math.max(-dMinY, dMaxY);
+        double farDz = Math.max(-dMinZ, dMaxZ);
+
+        switch (shape) {
+            case BOX: {
+                double minDist = Math.max(nearDx, Math.max(nearDy, nearDz));
+                if (minDist > threshold) return SECTION_FULLY_CULLED;
+                double maxDist = Math.max(farDx, Math.max(farDy, farDz));
+                return maxDist <= threshold ? SECTION_FULLY_KEPT : SECTION_STRADDLING;
+            }
+            case CYLINDER:
+            case CIRCLE: {
+                double minDistSq = nearDx * nearDx + nearDz * nearDz;
+                if (minDistSq > threshold * threshold) return SECTION_FULLY_CULLED;
+                double maxDistSq = farDx * farDx + farDz * farDz;
+                return maxDistSq <= threshold * threshold ? SECTION_FULLY_KEPT : SECTION_STRADDLING;
+            }
+            case SQUARE: {
+                double minDist = Math.max(nearDx, nearDz);
+                if (minDist > threshold) return SECTION_FULLY_CULLED;
+                double maxDist = Math.max(farDx, farDz);
+                return maxDist <= threshold ? SECTION_FULLY_KEPT : SECTION_STRADDLING;
+            }
+            case STAR: {
+                // Circumradius of the star equals the limit, so radial rejection is exact
+                double minDistSq = nearDx * nearDx + nearDz * nearDz;
+                if (minDistSq > threshold * threshold) return SECTION_FULLY_CULLED;
+                // Concave shape: only fully kept when all four corners sit in the SAME triangle
+                boolean up = isInTriangleUp(dMinX, dMinZ, threshold) && isInTriangleUp(dMinX, dMaxZ, threshold)
+                          && isInTriangleUp(dMaxX, dMinZ, threshold) && isInTriangleUp(dMaxX, dMaxZ, threshold);
+                if (up) return SECTION_FULLY_KEPT;
+                boolean down = isInTriangleDown(dMinX, dMinZ, threshold) && isInTriangleDown(dMinX, dMaxZ, threshold)
+                            && isInTriangleDown(dMaxX, dMinZ, threshold) && isInTriangleDown(dMaxX, dMaxZ, threshold);
+                return down ? SECTION_FULLY_KEPT : SECTION_STRADDLING;
+            }
+            case TRIANGLE:
+            case HEXAGON: {
+                // Radial rejection must use each shape's circumradius, not the limit
+                double cullRadius = shape == CullifyConfig.CullingShape.HEXAGON
+                        ? threshold * HEXAGON_CIRCUMRADIUS : threshold;
+                double minDistSq = nearDx * nearDx + nearDz * nearDz;
+                if (minDistSq > cullRadius * cullRadius) return SECTION_FULLY_CULLED;
+                // Convex 2D shapes: fully kept when all four signed corners are inside
+                boolean inside = isInShape(dMinX, 0, dMinZ, threshold, shape) && isInShape(dMinX, 0, dMaxZ, threshold, shape)
+                              && isInShape(dMaxX, 0, dMinZ, threshold, shape) && isInShape(dMaxX, 0, dMaxZ, threshold, shape);
+                return inside ? SECTION_FULLY_KEPT : SECTION_STRADDLING;
+            }
+            case SPHERE:
+            default: {
+                double minDistSq = nearDx * nearDx + nearDy * nearDy + nearDz * nearDz;
+                if (minDistSq > threshold * threshold) return SECTION_FULLY_CULLED;
+                double maxDistSq = farDx * farDx + farDy * farDy + farDz * farDz;
+                return maxDistSq <= threshold * threshold ? SECTION_FULLY_KEPT : SECTION_STRADDLING;
+            }
+        }
     }
 
     // -----------------------------------------------------------------------
