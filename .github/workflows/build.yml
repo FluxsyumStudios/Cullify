@@ -1,0 +1,83 @@
+# Builds the Cullify jar for every loader branch (main excluded).
+#
+# - push to a loader branch  -> builds only that branch
+# - manual run (Actions tab) -> builds ALL loader branches in a matrix
+#
+# Each branch pins its own JDK (26.1.2 -> 25, 1.21.1 -> 21, 1.20.1 -> 17).
+# The local org.gradle.java.home in gradle.properties points to a Windows
+# path, so it is stripped before building on the CI runner.
+
+name: Build Jars
+
+on:
+  push:
+    branches:
+      - fabric-26.1.2
+      - fabric-1.21.1
+      - neoforge-26.1.2
+      - neoforge-1.21.1
+      - forge-1.20.1
+  workflow_dispatch:
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      branches: ${{ steps.set.outputs.branches }}
+    steps:
+      - id: set
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo 'branches=["fabric-26.1.2","fabric-1.21.1","neoforge-26.1.2","neoforge-1.21.1","forge-1.20.1"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'branches=["${{ github.ref_name }}"]' >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: plan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: ${{ fromJSON(needs.plan.outputs.branches) }}
+    name: build (${{ matrix.branch }})
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.branch }}
+
+      - name: Pick JDK for branch
+        id: java
+        run: |
+          case "${{ matrix.branch }}" in
+            *26.1.2*) echo "version=25" >> "$GITHUB_OUTPUT" ;;
+            *1.21.1*) echo "version=21" >> "$GITHUB_OUTPUT" ;;
+            *1.20.1*) echo "version=17" >> "$GITHUB_OUTPUT" ;;
+            *)        echo "version=21" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Strip local JDK path from gradle.properties
+        run: sed -i '/^org\.gradle\.java\.home=/d' gradle.properties
+
+      - name: Set up JDK ${{ steps.java.outputs.version }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ steps.java.outputs.version }}
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@af1da67850ed9a4cedd57bfd976089dd991e2582 # v4.0.0
+
+      - name: Build with Gradle Wrapper
+        run: ./gradlew build -x test --no-daemon
+
+      - name: Upload jars
+        uses: actions/upload-artifact@v4
+        with:
+          name: cullify-${{ matrix.branch }}
+          path: |
+            build/libs/*.jar
+            !build/libs/*-sources.jar
+          if-no-files-found: error
