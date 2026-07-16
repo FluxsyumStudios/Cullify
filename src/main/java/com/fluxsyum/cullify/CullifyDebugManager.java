@@ -51,8 +51,29 @@ public class CullifyDebugManager {
         VERBOSE
     }
 
-    /** Current debug level. Controlled via config and /cullify command. */
+    /**
+     * Current debug level. Controlled via config and /cullify command.
+     * Read directly, but always write through {@link #setDebugLevel} so that
+     * {@link #statsEnabled} stays in sync.
+     */
     public static volatile DebugLevel debugLevel = DebugLevel.OFF;
+
+    /**
+     * Whether the diagnostic counters should be fed.
+     *
+     * The counters exist purely to drive the debug HUD, but they are incremented from the
+     * chunk-build workers once per culled block — a contended atomic on a path that runs
+     * millions of times per chunk build. Gating them keeps that cost out of normal play.
+     * Mirrors {@link #debugLevel} as a plain boolean so the hot path reads one volatile
+     * field instead of an enum reference.
+     */
+    public static volatile boolean statsEnabled = false;
+
+    /** Sets the debug level, keeping the counter gate in sync. */
+    public static void setDebugLevel(DebugLevel level) {
+        debugLevel = level;
+        statsEnabled = level != DebugLevel.OFF;
+    }
 
     /**
      * Takes a snapshot of all counters (sumThenReset) for display.
@@ -85,10 +106,10 @@ public class CullifyDebugManager {
     public static void syncFromConfig() {
         if (CullifyConfig.DEBUG_MODE.get()) {
             if (debugLevel == DebugLevel.OFF) {
-                debugLevel = DebugLevel.BASIC;
+                setDebugLevel(DebugLevel.BASIC);
             }
         } else {
-            debugLevel = DebugLevel.OFF;
+            setDebugLevel(DebugLevel.OFF);
         }
     }
 }

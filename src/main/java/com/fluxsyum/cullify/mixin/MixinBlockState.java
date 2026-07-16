@@ -17,8 +17,9 @@ import org.spongepowered.asm.mixin.Unique;
  * BlockState objects are immutable singletons created at game startup.
  *
  * Thread safety: Multiple worker threads may compute the same value concurrently,
- * but since the result is deterministic and reference writes are atomic in Java,
- * no synchronization is needed.
+ * but since the result is deterministic and reference and byte writes are both atomic
+ * in Java, no synchronization is needed. A thread that races and reads a not-yet-written
+ * field simply recomputes the same value.
  */
 @Mixin(BlockBehaviour.BlockStateBase.class)
 public abstract class MixinBlockState implements CullifyBlockState {
@@ -27,13 +28,13 @@ public abstract class MixinBlockState implements CullifyBlockState {
     private volatile CullifyMod.PlantType cullify$plantType;
 
     @Unique
-    private volatile Boolean cullify$hasFluidCached;
+    private byte cullify$hasFluidCached;
 
     @Unique
     private volatile BlockState cullify$fluidBlockStateCached;
 
     @Unique
-    private volatile Boolean cullify$isDoubleBlockUpperHalfCached;
+    private byte cullify$isDoubleBlockUpperHalfCached;
 
     @Override
     @Unique
@@ -49,13 +50,14 @@ public abstract class MixinBlockState implements CullifyBlockState {
     @Override
     @Unique
     public boolean cullify$hasFluid() {
-        Boolean cached = this.cullify$hasFluidCached;
-        if (cached == null) {
+        byte cached = this.cullify$hasFluidCached;
+        if (cached == CULLIFY_UNCOMPUTED) {
             BlockState state = (BlockState) (Object) this;
-            cached = !state.getFluidState().isEmpty();
+            boolean value = !state.getFluidState().isEmpty();
+            cached = value ? CULLIFY_TRUE : CULLIFY_FALSE;
             this.cullify$hasFluidCached = cached;
         }
-        return cached;
+        return cached == CULLIFY_TRUE;
     }
 
     @Override
@@ -78,13 +80,14 @@ public abstract class MixinBlockState implements CullifyBlockState {
     @Override
     @Unique
     public boolean cullify$isDoubleBlockUpperHalf() {
-        Boolean cached = this.cullify$isDoubleBlockUpperHalfCached;
-        if (cached == null) {
+        byte cached = this.cullify$isDoubleBlockUpperHalfCached;
+        if (cached == CULLIFY_UNCOMPUTED) {
             BlockState state = (BlockState) (Object) this;
-            cached = state.hasProperty(net.minecraft.world.level.block.state.properties.BlockStateProperties.DOUBLE_BLOCK_HALF)
+            boolean value = state.hasProperty(net.minecraft.world.level.block.state.properties.BlockStateProperties.DOUBLE_BLOCK_HALF)
                     && state.getValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.DOUBLE_BLOCK_HALF) == net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER;
+            cached = value ? CULLIFY_TRUE : CULLIFY_FALSE;
             this.cullify$isDoubleBlockUpperHalfCached = cached;
         }
-        return cached;
+        return cached == CULLIFY_TRUE;
     }
 }

@@ -11,6 +11,15 @@ import net.minecraft.world.level.block.state.BlockState;
 public interface CullifyBlockState {
 
     /**
+     * Tri-state encoding for the lazily cached boolean flags below. Stored as a byte
+     * rather than a Boolean so the meshing hot path reads a primitive field instead of
+     * dereferencing and unboxing an object.
+     */
+    byte CULLIFY_UNCOMPUTED = 0;
+    byte CULLIFY_FALSE = 1;
+    byte CULLIFY_TRUE = 2;
+
+    /**
      * Returns the cached PlantType for this BlockState.
      * Computed lazily on first access and stored permanently.
      */

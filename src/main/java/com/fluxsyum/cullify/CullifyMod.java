@@ -1,6 +1,8 @@
 package com.fluxsyum.cullify;
 
 import com.fluxsyum.cullify.duck.CullifyBlockState;
+import it.unimi.dsi.fastutil.longs.Long2FloatMap;
+import it.unimi.dsi.fastutil.longs.Long2FloatOpenHashMap;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -19,7 +21,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Mod(CullifyMod.MOD_ID)
 public class CullifyMod {
     public static final String MOD_ID = "cullify";
-    public static String VERSION = "1.4.5";
+    public static String VERSION = "1.4.6";
     public static final ResourceLocation LOGO = ResourceLocation.fromNamespaceAndPath(MOD_ID, "textures/gui/logo.png");
 
     // -----------------------------------------------------------------------
@@ -82,10 +84,47 @@ public class CullifyMod {
 
     /**
      * Per-section light importance factor, in [0.3, 1.0].
-     * Key = SectionPos.asLong(sx, sy, sz). Written by the background classifier thread.
+     * Key = SectionPos.asLong(sx, sy, sz).
+     *
+     * Published as an immutable snapshot by the background classifier thread and read by the
+     * chunk-build workers. A primitive map avoids boxing the section key (SectionPos longs are
+     * always outside the Long cache, so every lookup on a boxed map allocated) and avoids
+     * unboxing the returned factor. The volatile reference publishes each new snapshot
+     * atomically; readers must never mutate the map they read.
+     *
+     * Sections with no entry return {@link #NEUTRAL_LIGHT_FACTOR} via the map's default value.
      */
-    public static final java.util.concurrent.ConcurrentHashMap<Long, Float> sectionLightFactors =
-            new java.util.concurrent.ConcurrentHashMap<>();
+    public static volatile Long2FloatMap sectionLightFactors;
+
+    /** Light factor applied when a section has no cached entry: full configured distance. */
+    public static final float NEUTRAL_LIGHT_FACTOR = 1.0f;
+
+    static {
+        // Assigned here rather than at the declaration above: the initializer depends on
+        // NEUTRAL_LIGHT_FACTOR, which is declared after it.
+        sectionLightFactors = newLightFactorMap();
+    }
+
+    /**
+     * Creates a light-factor map that returns {@link #NEUTRAL_LIGHT_FACTOR} for absent
+     * sections. Always build snapshots through this so an unmapped section falls back to
+     * the full distance rather than fastutil's 0.0f default (which would cull everything).
+     */
+    public static Long2FloatOpenHashMap newLightFactorMap() {
+        Long2FloatOpenHashMap map = new Long2FloatOpenHashMap();
+        map.defaultReturnValue(NEUTRAL_LIGHT_FACTOR);
+        return map;
+    }
+
+    /**
+     * Copies {@code source} into a new light-factor map. fastutil's copy constructor does
+     * not carry over the default return value, so it is reapplied here.
+     */
+    public static Long2FloatOpenHashMap newLightFactorMap(Long2FloatMap source) {
+        Long2FloatOpenHashMap map = new Long2FloatOpenHashMap(source);
+        map.defaultReturnValue(NEUTRAL_LIGHT_FACTOR);
+        return map;
+    }
 
     public static volatile boolean benchmarkBypass = false;
 
@@ -278,10 +317,21 @@ public class CullifyMod {
     public static BlockState getCulledState(BlockState state) {
         CullifyBlockState duck = (CullifyBlockState) (Object) state;
         if (duck.cullify$hasFluid()) {
-            CullifyDebugManager.waterReplacements.increment();
+            if (CullifyDebugManager.statsEnabled) {
+                CullifyDebugManager.waterReplacements.increment();
+            }
             return duck.cullify$getFluidBlockState();
         }
         return Blocks.AIR.defaultBlockState();
+    }
+
+    /**
+     * Looks up the cached light factor for the section containing the given block.
+     * Returns {@link #NEUTRAL_LIGHT_FACTOR} when the section has no entry.
+     */
+    public static float getLightFactor(int x, int y, int z) {
+        long secKey = net.minecraft.core.SectionPos.asLong(x >> 4, y >> 4, z >> 4);
+        return sectionLightFactors.get(secKey);
     }
 
     // -----------------------------------------------------------------------
@@ -382,6 +432,8 @@ public class CullifyMod {
         double farDy = Math.max(-dMinY, dMaxY);
         double farDz = Math.max(-dMinZ, dMaxZ);
 
+        double thresholdSq = threshold * threshold;
+
         switch (shape) {
             case BOX: {
                 double minDist = Math.max(nearDx, Math.max(nearDy, nearDz));
@@ -392,9 +444,9 @@ public class CullifyMod {
             case CYLINDER:
             case CIRCLE: {
                 double minDistSq = nearDx * nearDx + nearDz * nearDz;
-                if (minDistSq > threshold * threshold) return SECTION_FULLY_CULLED;
+                if (minDistSq > thresholdSq) return SECTION_FULLY_CULLED;
                 double maxDistSq = farDx * farDx + farDz * farDz;
-                return maxDistSq <= threshold * threshold ? SECTION_FULLY_KEPT : SECTION_STRADDLING;
+                return maxDistSq <= thresholdSq ? SECTION_FULLY_KEPT : SECTION_STRADDLING;
             }
             case SQUARE: {
                 double minDist = Math.max(nearDx, nearDz);
@@ -405,7 +457,7 @@ public class CullifyMod {
             case STAR: {
                 // Circumradius of the star equals the limit, so radial rejection is exact
                 double minDistSq = nearDx * nearDx + nearDz * nearDz;
-                if (minDistSq > threshold * threshold) return SECTION_FULLY_CULLED;
+                if (minDistSq > thresholdSq) return SECTION_FULLY_CULLED;
                 // Concave shape: only fully kept when all four corners sit in the SAME triangle
                 boolean up = isInTriangleUp(dMinX, dMinZ, threshold) && isInTriangleUp(dMinX, dMaxZ, threshold)
                           && isInTriangleUp(dMaxX, dMinZ, threshold) && isInTriangleUp(dMaxX, dMaxZ, threshold);
@@ -429,9 +481,9 @@ public class CullifyMod {
             case SPHERE:
             default: {
                 double minDistSq = nearDx * nearDx + nearDy * nearDy + nearDz * nearDz;
-                if (minDistSq > threshold * threshold) return SECTION_FULLY_CULLED;
+                if (minDistSq > thresholdSq) return SECTION_FULLY_CULLED;
                 double maxDistSq = farDx * farDx + farDy * farDy + farDz * farDz;
-                return maxDistSq <= threshold * threshold ? SECTION_FULLY_KEPT : SECTION_STRADDLING;
+                return maxDistSq <= thresholdSq ? SECTION_FULLY_KEPT : SECTION_STRADDLING;
             }
         }
     }
@@ -484,7 +536,7 @@ public class CullifyMod {
                 double halfLimitSq = (limit * 0.5) * (limit * 0.5);
                 // Only apply density thinning in the outer 50% of the cull radius
                 if (distSq > halfLimitSq && !passesLodDensity(x, y, z, lodDensity)) {
-                     if (countStats) {
+                     if (countStats && CullifyDebugManager.statsEnabled) {
                          CullifyDebugManager.culledBlocks.increment();
                      }
                      return true;
@@ -503,7 +555,7 @@ public class CullifyMod {
         }
 
         if (isOutside) {
-            if (countStats) {
+            if (countStats && CullifyDebugManager.statsEnabled) {
                 CullifyDebugManager.culledBlocks.increment();
             }
             return true;
@@ -512,17 +564,7 @@ public class CullifyMod {
     }
 
     public static boolean shouldCull(BlockState state, int x, int y, int z) {
-        float lightFactor = 1.0f;
-        if (cachedLightAware) {
-            int sx = x >> 4;
-            int sy = y >> 4;
-            int sz = z >> 4;
-            long secKey = net.minecraft.core.SectionPos.asLong(sx, sy, sz);
-            Float factor = sectionLightFactors.get(secKey);
-            if (factor != null) {
-                lightFactor = factor;
-            }
-        }
+        float lightFactor = cachedLightAware ? getLightFactor(x, y, z) : NEUTRAL_LIGHT_FACTOR;
         return shouldCullInternal(state, x, y, z, true, true, lightFactor);
     }
 
@@ -535,17 +577,7 @@ public class CullifyMod {
     }
 
     public static boolean shouldCullNoCount(BlockState state, int x, int y, int z) {
-        float lightFactor = 1.0f;
-        if (cachedLightAware) {
-            int sx = x >> 4;
-            int sy = y >> 4;
-            int sz = z >> 4;
-            long secKey = net.minecraft.core.SectionPos.asLong(sx, sy, sz);
-            Float factor = sectionLightFactors.get(secKey);
-            if (factor != null) {
-                lightFactor = factor;
-            }
-        }
+        float lightFactor = cachedLightAware ? getLightFactor(x, y, z) : NEUTRAL_LIGHT_FACTOR;
         return shouldCullInternal(state, x, y, z, false, true, lightFactor);
     }
 }
