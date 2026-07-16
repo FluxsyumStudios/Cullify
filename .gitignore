@@ -29,6 +29,7 @@ bin/
 ### VS Code ###
 .vscode/
 .claude/
+dist
 
 ### Compiled class files ###
 *.class
