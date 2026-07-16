@@ -78,7 +78,9 @@ public class ClientModBusSubscriber {
 
                     String hiddenText = "Hidden: §e" + CullifyDebugManager.lastCulledBlocks;
                     String waterText = "Waterlogged: §9" + CullifyDebugManager.lastWaterReplacements;
-                    String drawsText = "Draws: §d" + (sodium ? "MDI" : CullifyDebugManager.lastDrawCalls);
+                    // Sodium batches via MDI and vanilla's 26.1 pipeline no longer exposes a
+                    // per-section draw call, so there is no meaningful number to show here.
+                    String drawsText = "Draws: §d" + (sodium ? "MDI" : "N/A");
 
                     graphics.text(font, statusText, x + 10, y + 37, 0xFFFFFFFF, false);
                     graphics.text(font, pathText, x + 10, y + 47, 0xFFFFFFFF, false);

@@ -1,9 +1,10 @@
 package com.fluxsyum.cullify.mixin;
 
-import com.fluxsyum.cullify.CullifyConfig;
 import com.fluxsyum.cullify.CullifyDebugManager;
 import com.fluxsyum.cullify.CullifyMod;
+import com.fluxsyum.cullify.benchmark.BenchmarkManager;
 import com.fluxsyum.cullify.duck.CullifyBlockState;
+import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -11,11 +12,18 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * Optimizes culling for Sodium's LevelSlice by classifying the 27 adjacent chunk sections
  * into FULLY_CULLED, FULLY_KEPT, or STRADDLING states to avoid per-block calculations.
+ *
+ * Only {@code getBlockState(int, int, int)} is hooked: Sodium's {@code getBlockState(BlockPos)}
+ * is a thin overload that delegates straight to it, so hooking both would test every kept
+ * plant twice.
+ *
+ * Threading: Sodium gives each chunk-build worker its own ChunkBuildContext, hence its own
+ * BlockRenderCache and its own LevelSlice. Instances are never shared between threads, so
+ * the cache fields below need no volatile or synchronization.
  */
 @Mixin(targets = "net.caffeinemc.mods.sodium.client.world.LevelSlice")
 public class MixinLevelSlice {
@@ -33,14 +41,16 @@ public class MixinLevelSlice {
     @Unique private final byte[] cullify$otherCache  = new byte[27];
     @Unique private final float[] cullify$lightFactors = new float[27];
 
-    @Unique private volatile boolean cullify$cacheValid = false;
-    @Unique private volatile int cullify$lastConfigVersion = -1;
+    @Unique private boolean cullify$cacheValid = false;
+    @Unique private int cullify$lastConfigVersion = -1;
 
     // Rebuild cache when a new section is copied into LevelSlice
     @Inject(method = "copyData", at = @At("TAIL"), remap = false)
     private void cullify$onCopyData(CallbackInfo ci) {
         cullify$cacheValid = false;
-        CullifyDebugManager.mixinLevelSliceApplied = true;
+        if (!CullifyDebugManager.mixinLevelSliceApplied) {
+            CullifyDebugManager.mixinLevelSliceApplied = true;
+        }
         if (CullifyMod.cachedEnabled && CullifyMod.hasPlayer) {
             cullify$rebuildCache();
         }
@@ -52,26 +62,28 @@ public class MixinLevelSlice {
         cullify$cacheValid = false;
     }
 
-    // Primary getBlockState hook for block coordinate lookup
-    @Inject(method = "getBlockState(III)Lnet/minecraft/world/level/block/state/BlockState;",
-            at = @At("RETURN"), cancellable = true, remap = false)
-    private void cullify$onGetBlockStateCoords(int x, int y, int z, CallbackInfoReturnable<BlockState> cir) {
-        if (!CullifyMod.cachedEnabled || !CullifyMod.hasPlayer) {
-            return;
+    /**
+     * The meshing hot path — runs for every block Sodium reads while building a chunk.
+     * Uses {@link ModifyReturnValue} rather than a cancellable {@code @Inject} so that no
+     * CallbackInfoReturnable is allocated on the calls that return a non-plant block, which
+     * is the overwhelming majority of them.
+     */
+    @ModifyReturnValue(method = "getBlockState(III)Lnet/minecraft/world/level/block/state/BlockState;",
+            at = @At("RETURN"), remap = false)
+    private BlockState cullify$onGetBlockStateCoords(BlockState state, int x, int y, int z) {
+        if (!CullifyMod.cachedEnabled || !CullifyMod.hasPlayer || state == null) {
+            return state;
         }
 
-        BlockState state = cir.getReturnValue();
-        if (state == null) return;
-
         CullifyMod.PlantType type = ((CullifyBlockState) (Object) state).cullify$getPlantType();
-        if (type == CullifyMod.PlantType.NONE) return;
+        if (type == CullifyMod.PlantType.NONE) return state;
 
         int lx = (x - originBlockX) >> 4;
         int ly = (y - originBlockY) >> 4;
         int lz = (z - originBlockZ) >> 4;
 
-        boolean benchmark = com.fluxsyum.cullify.benchmark.BenchmarkManager.isRunning();
-        if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.blocksTested.increment();
+        boolean benchmark = BenchmarkManager.isRunning();
+        if (benchmark) BenchmarkManager.blocksTested.increment();
 
         boolean inBounds = lx >= 0 && lx <= 2 && ly >= 0 && ly <= 2 && lz >= 0 && lz <= 2;
         int sectionIdx = inBounds ? (ly * 9 + lz * 3 + lx) : -1;
@@ -80,117 +92,44 @@ public class MixinLevelSlice {
             byte cacheState = cullify$getCacheState(type, sectionIdx);
 
             if (cacheState == FULLY_CULLED) {
-                CullifyDebugManager.culledBlocks.increment();
-                if (benchmark) {
-                    com.fluxsyum.cullify.benchmark.BenchmarkManager.blocksCulled.increment();
-                    com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheHits.increment();
+                if (CullifyDebugManager.statsEnabled) {
+                    CullifyDebugManager.culledBlocks.increment();
                 }
-                cir.setReturnValue(CullifyMod.getCulledState(state));
-                return;
+                if (benchmark) {
+                    BenchmarkManager.blocksCulled.increment();
+                    BenchmarkManager.cacheHits.increment();
+                }
+                return CullifyMod.getCulledState(state);
             } else if (cacheState == FULLY_KEPT) {
-                if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheHits.increment();
-                return;
+                if (benchmark) BenchmarkManager.cacheHits.increment();
+                return state;
             }
-            if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheMisses.increment();
+            if (benchmark) BenchmarkManager.cacheMisses.increment();
         } else {
-            if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheMisses.increment();
+            if (benchmark) BenchmarkManager.cacheMisses.increment();
         }
 
-        float lightFactor = 1.0f;
+        float lightFactor = CullifyMod.NEUTRAL_LIGHT_FACTOR;
         if (inBounds) {
             lightFactor = cullify$lightFactors[sectionIdx];
         } else if (CullifyMod.cachedLightAware) {
-            int sx = x >> 4;
-            int sy = y >> 4;
-            int sz = z >> 4;
-            long secKey = net.minecraft.core.SectionPos.asLong(sx, sy, sz);
-            Float factor = CullifyMod.sectionLightFactors.get(secKey);
-            if (factor != null) {
-                lightFactor = factor;
-            }
+            lightFactor = CullifyMod.getLightFactor(x, y, z);
         }
 
         if (CullifyMod.shouldCull(state, x, y, z, lightFactor)) {
-            if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.blocksCulled.increment();
-            cir.setReturnValue(CullifyMod.getCulledState(state));
+            if (benchmark) BenchmarkManager.blocksCulled.increment();
+            return CullifyMod.getCulledState(state);
         }
-    }
-
-    // Secondary getBlockState hook for BlockPos lookup
-    @Inject(method = "getBlockState(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/block/state/BlockState;",
-            at = @At("RETURN"), cancellable = true, remap = true)
-    private void cullify$onGetBlockStatePos(net.minecraft.core.BlockPos pos, CallbackInfoReturnable<BlockState> cir) {
-        if (!CullifyMod.cachedEnabled || !CullifyMod.hasPlayer) {
-            return;
-        }
-
-        BlockState state = cir.getReturnValue();
-        if (state == null) return;
-
-        CullifyMod.PlantType type = ((CullifyBlockState) (Object) state).cullify$getPlantType();
-        if (type == CullifyMod.PlantType.NONE) return;
-
-        int x = pos.getX();
-        int y = pos.getY();
-        int z = pos.getZ();
-
-        int lx = (x - originBlockX) >> 4;
-        int ly = (y - originBlockY) >> 4;
-        int lz = (z - originBlockZ) >> 4;
-
-        boolean benchmark = com.fluxsyum.cullify.benchmark.BenchmarkManager.isRunning();
-        if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.blocksTested.increment();
-
-        boolean inBounds = lx >= 0 && lx <= 2 && ly >= 0 && ly <= 2 && lz >= 0 && lz <= 2;
-        int sectionIdx = inBounds ? (ly * 9 + lz * 3 + lx) : -1;
-
-        if (cullify$cacheValid && cullify$lastConfigVersion == CullifyMod.configVersion && inBounds) {
-            byte cacheState = cullify$getCacheState(type, sectionIdx);
-
-            if (cacheState == FULLY_CULLED) {
-                CullifyDebugManager.culledBlocks.increment();
-                if (benchmark) {
-                    com.fluxsyum.cullify.benchmark.BenchmarkManager.blocksCulled.increment();
-                    com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheHits.increment();
-                }
-                cir.setReturnValue(CullifyMod.getCulledState(state));
-                return;
-            } else if (cacheState == FULLY_KEPT) {
-                if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheHits.increment();
-                return;
-            }
-            if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheMisses.increment();
-        } else {
-            if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheMisses.increment();
-        }
-
-        float lightFactor = 1.0f;
-        if (inBounds) {
-            lightFactor = cullify$lightFactors[sectionIdx];
-        } else if (CullifyMod.cachedLightAware) {
-            int sx = x >> 4;
-            int sy = y >> 4;
-            int sz = z >> 4;
-            long secKey = net.minecraft.core.SectionPos.asLong(sx, sy, sz);
-            Float factor = CullifyMod.sectionLightFactors.get(secKey);
-            if (factor != null) {
-                lightFactor = factor;
-            }
-        }
-
-        if (CullifyMod.shouldCull(state, x, y, z, lightFactor)) {
-            if (benchmark) com.fluxsyum.cullify.benchmark.BenchmarkManager.blocksCulled.increment();
-            cir.setReturnValue(CullifyMod.getCulledState(state));
-        }
+        return state;
     }
 
     // Rebuild the AABB distance cache for the 27 sections.
     // Called ONLY from copyData (once per section) — never from getBlockState.
     @Unique
     private void cullify$rebuildCache() {
-        boolean benchmark = com.fluxsyum.cullify.benchmark.BenchmarkManager.isRunning();
+        boolean benchmark = BenchmarkManager.isRunning();
         long start = benchmark ? System.nanoTime() : 0;
-        
+
         // Capture stable local snapshots of volatile player position and config.
         final double px = CullifyMod.playerX;
         final double py = CullifyMod.playerY;
@@ -199,6 +138,12 @@ public class MixinLevelSlice {
         final double grassDist  = CullifyMod.getCullDistance(CullifyMod.PlantType.GRASS);
         final double flowerDist = CullifyMod.getCullDistance(CullifyMod.PlantType.FLOWER);
         final double otherDist  = CullifyMod.getCullDistance(CullifyMod.PlantType.OTHER);
+
+        // One snapshot read for the whole rebuild — the field is volatile and may be
+        // republished by the classifier thread at any time.
+        final boolean lightAware = CullifyMod.cachedLightAware;
+        final it.unimi.dsi.fastutil.longs.Long2FloatMap lightFactors =
+                lightAware ? CullifyMod.sectionLightFactors : null;
 
         for (int ly = 0; ly < 3; ly++) {
             // Section bounds as signed offsets relative to the camera
@@ -231,24 +176,23 @@ public class MixinLevelSlice {
                             : CullifyMod.classifySection(dMinX, dMaxX, dMinY, dMaxY, dMinZ, dMaxZ, otherDist));
 
                     // Light-Aware Culling: cache light factor
-                    if (CullifyMod.cachedLightAware) {
-                        long secKey = net.minecraft.core.SectionPos.asLong(sx, sy, sz);
-                        Float factor = CullifyMod.sectionLightFactors.get(secKey);
-                        cullify$lightFactors[sectionIdx] = factor != null ? factor : 1.0f;
+                    if (lightAware) {
+                        cullify$lightFactors[sectionIdx] =
+                                lightFactors.get(net.minecraft.core.SectionPos.asLong(sx, sy, sz));
                     } else {
-                        cullify$lightFactors[sectionIdx] = 1.0f;
+                        cullify$lightFactors[sectionIdx] = CullifyMod.NEUTRAL_LIGHT_FACTOR;
                     }
                 }
             }
         }
 
-        // Update configVersion snapshot and mark cache valid atomically
+        // Update configVersion snapshot and mark cache valid
         cullify$lastConfigVersion = CullifyMod.configVersion;
         cullify$cacheValid = true;
-        
+
         if (benchmark) {
-            com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheRebuildTimeNanos.add(System.nanoTime() - start);
-            com.fluxsyum.cullify.benchmark.BenchmarkManager.cacheRebuilds.increment();
+            BenchmarkManager.cacheRebuildTimeNanos.add(System.nanoTime() - start);
+            BenchmarkManager.cacheRebuilds.increment();
         }
     }
 
