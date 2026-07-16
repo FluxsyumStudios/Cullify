@@ -17,7 +17,10 @@ public class BenchmarkManager {
         RUNNING_WITH
     }
 
-    private static State state = State.IDLE;
+    // Volatile: written on the client thread but read by the chunk-build workers via
+    // isRunning() on the meshing hot path, which would otherwise be free to never
+    // observe a phase change and silently skew the recorded stats.
+    private static volatile State state = State.IDLE;
 
     // Stats
     public static final LongAdder blocksTested = new LongAdder();

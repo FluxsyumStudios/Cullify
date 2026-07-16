@@ -13,9 +13,10 @@ import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.lit
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.argument;
 import com.mojang.brigadier.CommandDispatcher;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
+import it.unimi.dsi.fastutil.longs.Long2FloatOpenHashMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
+
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -91,11 +92,39 @@ public class ClientEventHandler {
     private static int smartScaleTickCounter = 0;
 
     /**
-     * Thread-safe map from packed section position to its classified state.
-     * Written by the background classifier thread, cleared from the main thread.
+     * Packed section position → classified state.
+     *
+     * Owned exclusively by the background classifier thread; a primitive map avoids boxing
+     * the key for every section on every scan. The main thread must never touch it — it
+     * calls {@link #requestClassifierReset()} instead, and the classifier honours that at
+     * the start of its next scan.
      */
-    private static final ConcurrentHashMap<Long, SectionState> sectionStates = new ConcurrentHashMap<>();
+    private static final Long2ObjectOpenHashMap<SectionState> sectionStates = new Long2ObjectOpenHashMap<>();
+
+    /**
+     * Light factors accumulated across scans, also owned exclusively by the classifier
+     * thread. A read-only snapshot is published to {@link CullifyMod#sectionLightFactors}
+     * for the chunk-build workers at the end of each scan.
+     */
+    private static final Long2FloatOpenHashMap lightFactorsLocal = CullifyMod.newLightFactorMap();
+
+    /** Set by the main thread to make the classifier drop its caches on the next scan. */
+    private static volatile boolean classifierResetRequested = false;
+
     private static volatile int tickCounter = 0;
+
+    /**
+     * Asks the classifier to drop its cached section states and light factors.
+     *
+     * Safe from the main thread: the maps are only ever mutated by the classifier thread,
+     * so the reset is deferred to the start of its next scan rather than applied here. The
+     * published light-factor snapshot is replaced immediately so the chunk-build workers
+     * stop seeing stale factors right away.
+     */
+    private static void requestClassifierReset() {
+        classifierResetRequested = true;
+        CullifyMod.sectionLightFactors = CullifyMod.newLightFactorMap();
+    }
 
     public static class SectionState {
         public byte grassState;
@@ -138,8 +167,11 @@ public class ClientEventHandler {
 
         if (player == null || level == null) {
             CullifyMod.hasPlayer = false;
-            initialized = false;
-            sectionStates.clear();
+            // Reset once on world exit, not on every tick spent sitting in the menu
+            if (initialized) {
+                initialized = false;
+                requestClassifierReset();
+            }
             return;
         }
 
@@ -253,8 +285,7 @@ public class ClientEventHandler {
             lastSmartScale   = smartScale;
             lastTargetFps    = targetFps;
             lastLightAware   = lightAware;
-            sectionStates.clear();
-            CullifyMod.sectionLightFactors.clear();
+            requestClassifierReset();
             scheduleDebouncedSave();
             CullifyMod.updateConfigCache();
             CullifyMod.incrementConfigVersion();
@@ -415,9 +446,9 @@ public class ClientEventHandler {
                 }))
                 .then(literal("verbose").executes(ctx -> {
                     if (CullifyDebugManager.debugLevel == CullifyDebugManager.DebugLevel.VERBOSE) {
-                        CullifyDebugManager.debugLevel = CullifyDebugManager.DebugLevel.BASIC;
+                        CullifyDebugManager.setDebugLevel(CullifyDebugManager.DebugLevel.BASIC);
                     } else {
-                        CullifyDebugManager.debugLevel = CullifyDebugManager.DebugLevel.VERBOSE;
+                        CullifyDebugManager.setDebugLevel(CullifyDebugManager.DebugLevel.VERBOSE);
                         CullifyConfig.DEBUG_MODE.set(true);
                         scheduleDebouncedSave();
                     }
@@ -464,6 +495,13 @@ public class ClientEventHandler {
      * {@code setSectionDirty} calls back to the main thread to preserve render-thread safety.
      */
     private static void checkChunkTransitions(ClientLevel level, Vec3 cameraPos) {
+        // Honour a reset requested by the main thread before touching the caches.
+        if (classifierResetRequested) {
+            classifierResetRequested = false;
+            sectionStates.clear();
+            lightFactorsLocal.clear();
+        }
+
         if (!CullifyMod.cachedEnabled) {
             return;
         }
@@ -492,8 +530,15 @@ public class ClientEventHandler {
         int currentTick = tickCounter;
 
         // Collect sections that need a render rebuild; dispatched to main thread below
-        List<Long> dirtyPositions = new ArrayList<>();
+        LongArrayList dirtyPositions = new LongArrayList();
         net.minecraft.core.BlockPos.MutableBlockPos mutablePos = new net.minecraft.core.BlockPos.MutableBlockPos();
+
+        final boolean lightAware = CullifyMod.cachedLightAware;
+        boolean lightFactorsChanged = false;
+
+        // Vertical scan bounds are invariant across the X/Z loops
+        final int loSecY = Math.max(minSecY, pSecY - secRange);
+        final int hiSecY = Math.min(maxSecY, pSecY + secRange);
 
         for (int sx = pSecX - secRange; sx <= pSecX + secRange; sx++) {
             // Section bounds as signed offsets relative to the camera
@@ -511,7 +556,7 @@ public class ClientEventHandler {
                 double dMinZ = (sz << 4) - pz;
                 double dMaxZ = dMinZ + 16.0;
 
-                for (int sy = Math.max(minSecY, pSecY - secRange); sy <= Math.min(maxSecY, pSecY + secRange); sy++) {
+                for (int sy = loSecY; sy <= hiSecY; sy++) {
                     double dMinY = (sy << 4) - py;
                     double dMaxY = dMinY + 16.0;
 
@@ -522,7 +567,7 @@ public class ClientEventHandler {
                     byte oState = otherDist == grassDist ? gState : (otherDist == flowerDist ? fState
                             : CullifyMod.classifySection(dMinX, dMaxX, dMinY, dMaxY, dMinZ, dMaxZ, otherDist));
 
-                    Long posLong = net.minecraft.core.SectionPos.asLong(sx, sy, sz);
+                    long posLong = net.minecraft.core.SectionPos.asLong(sx, sy, sz);
                     SectionState secState = sectionStates.get(posLong);
 
                     boolean rebuild = false;
@@ -568,7 +613,7 @@ public class ClientEventHandler {
                     }
 
                     // Light-Aware Culling: compute section light importance factor
-                    if (CullifyMod.cachedLightAware) {
+                    if (lightAware) {
                         try {
                             // Sample brightness at the center block of this section
                             int cx = (sx << 4) + 8;
@@ -581,9 +626,12 @@ public class ClientEventHandler {
                             float importance = (0.75f * sky + 0.25f * block) / 15.0f;
                             // Clamp to [0.3, 1.0]: fully dark = 30% of configured distance; full sun = 100%
                             float lightFactor = Math.clamp(0.3f + 0.7f * importance, 0.3f, 1.0f);
-                            Float existing = CullifyMod.sectionLightFactors.get(posLong);
-                            if (existing == null || Math.abs(existing - lightFactor) > 0.04f) {
-                                CullifyMod.sectionLightFactors.put(posLong, lightFactor);
+                            // An absent section already reads as the neutral factor, so comparing
+                            // against the default is exactly right: a section that genuinely sits
+                            // at neutral is simply never stored.
+                            if (Math.abs(lightFactorsLocal.get(posLong) - lightFactor) > 0.04f) {
+                                lightFactorsLocal.put(posLong, lightFactor);
+                                lightFactorsChanged = true;
                                 // Trigger a re-render so the new effective radius takes effect
                                 if (!rebuild) dirtyPositions.add(posLong);
                             }
@@ -596,13 +644,19 @@ public class ClientEventHandler {
             }
         }
 
-        // Evict stale entries (safe on ConcurrentHashMap)
+        // Evict stale entries — this thread is the only mutator, so plain maps are safe
         if (currentTick % 20 == 0) {
-            sectionStates.entrySet().removeIf(entry -> (currentTick - entry.getValue().lastSeenTick) > 20);
+            sectionStates.values().removeIf(s -> (currentTick - s.lastSeenTick) > 20);
             // Also evict light factors for sections no longer tracked
-            if (CullifyMod.cachedLightAware) {
-                CullifyMod.sectionLightFactors.keySet().retainAll(sectionStates.keySet());
+            if (lightAware && lightFactorsLocal.keySet().retainAll(sectionStates.keySet())) {
+                lightFactorsChanged = true;
             }
+        }
+
+        // Publish the new light factors before dispatching the rebuilds below, so the
+        // chunk-build workers read the fresh factors when they re-mesh these sections.
+        if (lightFactorsChanged) {
+            CullifyMod.sectionLightFactors = CullifyMod.newLightFactorMap(lightFactorsLocal);
         }
 
         // Dispatch dirty-marking to the main/render thread — invokeSetSectionDirty is not thread-safe
@@ -614,12 +668,16 @@ public class ClientEventHandler {
                 com.fluxsyum.cullify.mixin.LevelRendererAccessor acc =
                     (com.fluxsyum.cullify.mixin.LevelRendererAccessor) lr;
                 if (acc.getViewArea() == null) return;
-                for (long packed : dirtyPositions) {
+                // Indexed access: an enhanced-for over a LongList still boxes via Iterator.next()
+                for (int i = 0, n = dirtyPositions.size(); i < n; i++) {
+                    long packed = dirtyPositions.getLong(i);
                     int sx = net.minecraft.core.SectionPos.x(packed);
                     int sy = net.minecraft.core.SectionPos.y(packed);
                     int sz = net.minecraft.core.SectionPos.z(packed);
                     acc.invokeSetSectionDirty(sx, sy, sz, false);
-                    CullifyDebugManager.chunkUpdates.increment();
+                    if (CullifyDebugManager.statsEnabled) {
+                        CullifyDebugManager.chunkUpdates.increment();
+                    }
                 }
             });
         }

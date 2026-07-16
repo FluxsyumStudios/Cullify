@@ -17,6 +17,8 @@ public class MixinLevelRendererDrawCalls {
     @Inject(method = "renderSectionLayer",
             at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/VertexBuffer;draw()V"))
     private void cullify$onDrawSection(CallbackInfo ci) {
-        com.fluxsyum.cullify.CullifyDebugManager.drawCalls.increment();
+        if (com.fluxsyum.cullify.CullifyDebugManager.statsEnabled) {
+            com.fluxsyum.cullify.CullifyDebugManager.drawCalls.increment();
+        }
     }
 }
