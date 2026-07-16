@@ -36,9 +36,6 @@ public class CullifyMixinConfigPlugin implements IMixinConfigPlugin {
         if (mixinClassName.contains("MixinLevelSlice")) {
             return hasSodium;
         }
-        if (mixinClassName.contains("MixinLevelRendererDrawCalls")) {
-            return !hasSodium;
-        }
         return true;
     }
 

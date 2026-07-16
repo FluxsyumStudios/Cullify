@@ -10,7 +10,6 @@
     "MixinRenderSectionRegion",
     "MixinLevelSlice",
     "MixinLevelRenderer",
-    "MixinLevelRendererDrawCalls",
     "LevelRendererAccessor"
   ],
   "injectors": {
